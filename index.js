@@ -58,7 +58,7 @@ const BASE_URLS = {
   [PROVIDERS.MISTRAL]: 'https://api.mistral.ai/v1',
   [PROVIDERS.TAALAS]: 'https://api.taalas.com/v1',
   [PROVIDERS.OLLAMA]: 'http://localhost:11434/v1',
-  [PROVIDERS.HUGGINGFACE]: 'https://api-inference.huggingface.co/v1/',
+  [PROVIDERS.HUGGINGFACE]: 'https://router.huggingface.co/hf-inference/v1',
 };
 
 const MODEL_SUGGESTIONS = {
@@ -601,11 +601,9 @@ function showWelcomeScreen(config) {
     '• Type ' + chalk.cyan('/exit') + ' to quit',
     '• Type ' + chalk.cyan('/config') + ' to change AI provider or model',
     '• Type ' + chalk.cyan('/update') + ' to install the latest version',
-    '• Type ' + chalk.cyan('/image <prompt>') + ' to generate an AI image',
-    '• Type ' + chalk.cyan('/ppt <topic>') + ' to auto-generate a PowerPoint',
-    '• Type ' + chalk.cyan('/seo <url>') + ' for a deep SEO audit',
-    '• Type ' + chalk.cyan('/dropship <niche>') + ' for e-commerce insights',
-    '• Type ' + chalk.cyan('/tradesignal <pair>') + ' for AI trading signals',
+    '• Type ' + chalk.cyan('/image <prompt>') + ' for AI-native visuals',
+    '• Type ' + chalk.cyan('/freeimage <prompt>') + ' for unlimited free images',
+    '• Type ' + chalk.cyan('/help') + ' for all commands',
     '• Just type anything to start building'
   ].join('\n');
 
@@ -693,6 +691,42 @@ async function startChat(config) {
       }
       process.exit(0);
     }
+    
+    // Handle /help interceptor
+    if (userInput.toLowerCase() === '/help') {
+      const helpContent = [
+        chalk.cyan.bold('Available Commands:'),
+        '• ' + chalk.cyan('/config') + ' - Change AI provider or model',
+        '• ' + chalk.cyan('/update') + ' - Fast-update to latest version',
+        '• ' + chalk.cyan('/ppt <topic>') + ' - Auto-generate a PowerPoint deck',
+        '• ' + chalk.cyan('/seo <url>') + ' - Get a deep SEO audit & strategy',
+        '• ' + chalk.cyan('/dropship <niche>') + ' - Find trending products/marketing',
+        '• ' + chalk.cyan('/tradesignal <pair>') + ' - Real-time trade signals',
+        '• ' + chalk.cyan('/image <prompt>') + ' - AI-native generation (uses active model)',
+        '• ' + chalk.cyan('/freeimage <prompt>') + ' - Unlimited Free AI images (Pollinations)',
+        '• ' + chalk.cyan('/exit') + ' - Close the agent session',
+        '• ' + chalk.cyan('/help') + ' - Show this menu'
+      ].join('\n');
+
+      console.log(boxen(helpContent, { padding: 1, borderStyle: 'round', borderColor: 'yellow' }));
+      continue;
+    }
+    
+    // Handle /freeimage interceptor (Bypass AI)
+    if (userInput.toLowerCase().startsWith('/freeimage ')) {
+      const freePrompt = userInput.slice(11).trim();
+      const freeSpinner = ora(chalk.gray('Generating Free AI Image...')).start();
+      try {
+        const filename = `free_${Date.now()}.png`;
+        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(freePrompt)}`;
+        const response = await axios.get(url, { responseType: 'arraybuffer' });
+        writeFileSync(filename, response.data);
+        freeSpinner.succeed(chalk.green(`Free Image successfully saved to ${filename}`));
+      } catch (e) {
+        freeSpinner.fail(chalk.red(`Error: ${e.message}`));
+      }
+      continue;
+    }
 
     // Handle /tradesignal interceptor
     if (userInput.toLowerCase().startsWith('/tradesignal ')) {
@@ -722,9 +756,9 @@ async function startChat(config) {
     
     if (userInput.toLowerCase().startsWith('/image ')) {
       const userPrompt = userInput.slice(7).trim();
-      currentInput = `The user wants to generate an image based on: ${userPrompt}. 
-      First, expand their idea into a highly detailed, cinematic midjourney-style image prompt. 
-      Then, use the generateImage tool to create it and save it as a uniquely named .png file. Tell the user it has been saved.`;
+      currentInput = `The user wants an image based on: ${userPrompt}. 
+      Use your configured AI model's native image generation capabilities if you have them (like DALL-E or Imagen), 
+      OR use the generateImage tool to create it via Pollinations.ai. Expanding the idea into a detailed, cinematic prompt first.`;
     }
     
     // Handle /read legacy
