@@ -13,14 +13,11 @@
 - 🤖 **Universal Multi-Provider AI**: Support for 13+ top AI providers (Gemini, Anthropic, OpenAI, OpenRouter, Groq, etc.)
 - 💻 **Autonomous Engineering**: Reads project structures, writes code, researches bugs, and executes terminal commands.
 - 📈 **Trading Signals**: Real-time market data analysis for Crypto/Forex with structured [BUY/SELL] signals.
+- 📊 **Excel Data Studio**: Generates professionally styled report spreadsheets from any topic.
+- 🎙️ **Voice MP3 Generator**: Instant, free Text-to-Speech (TTS) for any text in clear English.
+- 🖼️ **Unlimited AI Images**: High-quality, free image generation without an API key or watermarks.
 - 📊 **Corporate PPT Generator**: Auto-generates professional PowerPoint presentations from a simple topic.
 - 🔍 **SEO Auditor**: Scrapes websites to provide deep SEO audits and keyword strategies.
-- 🛍️ **Dropshipping Advisor**: Identifies winning products and generates high-converting marketing strategies.
-- 👁️ **Vision AI**: Processes and analyzes local image files for workspace context.
-- 🌐 **Web Scraper**: Extracts clean, readable text from any URL, bypassing ads and scripts.
-- 🌿 **Git Automation**: Stages and commits your work with professional, context-aware messages.
-- 🗺️ **Project Tree Mapping**: Instant, depth-limited recursive mapping of your codebase.
-- ⏱️ **Live UX Feedback**: Real-time timers on all AI operations for transparency.
 
 ---
 
@@ -58,6 +55,10 @@ npm install -g ceylonx
 | Command | Description |
 | :--- | :--- |
 | `/config` | Change your AI provider or model |
+| `/excel <topic>` | Generate a professional data report (Spreadsheet) |
+| `/audio <text>` | Generate high-quality voice MP3 (TTS) |
+| `/freeimage <prompt>` | Create unlimited free AI images (No watermark) |
+| `/image <prompt>` | Use native AI model capabilities for visuals |
 | `/tradesignal <pair>` | Get AI-powered market analysis & signals |
 | `/ppt <topic>` | Auto-generate a professional PowerPoint deck |
 | `/seo <url>` | Get a deep SEO audit and strategy |
