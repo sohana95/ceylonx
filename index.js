@@ -104,6 +104,19 @@ async function saveConfig(config) {
  */
 function handleApiError(error, spinner) {
   let errorMessage = error.message || 'An unexpected error occurred.';
+  
+  // Handle 401 Authentication Error Gracefully
+  if (errorMessage.includes('401')) {
+    const authFailedMsg = chalk.red.bold('\n[Authentication Failed] ') + chalk.white('Your API Key is invalid or expired. Please type ') + chalk.cyan('/config') + chalk.white(' to enter a new API key.\n');
+    if (spinner) {
+      spinner.fail(chalk.red('Authentication Failed'));
+      console.log(authFailedMsg);
+    } else {
+      console.error(authFailedMsg);
+    }
+    return;
+  }
+
   if (spinner) {
     spinner.fail(chalk.red('Error: ' + errorMessage));
   } else {
@@ -547,6 +560,7 @@ function showWelcomeScreen(config) {
   const modelLabel = chalk.bold('Active Model: ')    + chalk.white(config.modelId);
   const tips = [
     '• Type ' + chalk.cyan('/exit') + ' to quit',
+    '• Type ' + chalk.cyan('/config') + ' to change AI provider or model',
     '• Type ' + chalk.cyan('/update') + ' to install the latest version',
     '• Type ' + chalk.cyan('/ppt <topic>') + ' to auto-generate a PowerPoint',
     '• Type ' + chalk.cyan('/seo <url>') + ' for a deep SEO audit',
