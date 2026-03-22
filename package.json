@@ -1,0 +1,49 @@
+{
+  "name": "ceylonx",
+  "version": "1.0.1",
+  "description": "Ceylon X - 2026 Latest CLI AI Agent. Universal AI assistant with autonomous coding, trading signals, PPT generation, SEO audits, web scraping, vision AI, and multi-provider support.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "ceylonx": "index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "agent",
+    "ceylon",
+    "gemini",
+    "openrouter",
+    "groq",
+    "trading",
+    "seo",
+    "ppt",
+    "autonomous",
+    "2026",
+    "vibe-coding"
+  ],
+  "author": "Dev Sohan d Perera",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.13.6",
+    "boxen": "^8.0.1",
+    "chalk": "^5.6.2",
+    "cheerio": "^1.2.0",
+    "clear": "^0.1.0",
+    "commander": "^14.0.3",
+    "dotenv": "^17.3.1",
+    "figlet": "^1.11.0",
+    "googlethis": "^1.8.0",
+    "inquirer": "^13.3.2",
+    "openai": "^6.32.0",
+    "ora": "^9.3.0",
+    "pptxgenjs": "^4.0.1",
+    "sharp": "^0.34.5",
+    "strip-ansi": "^7.2.0"
+  }
+}
