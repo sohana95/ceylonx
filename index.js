@@ -796,31 +796,24 @@ async function startChat(config) {
       continue;
     }
     
-    // Handle /freeimage interceptor (Bypass AI)
     if (userInput.toLowerCase().startsWith('/freeimage ')) {
-      const freePrompt = userInput.slice(11).trim();
-      const freeSpinner = ora(chalk.gray('Generating high-quality AI image...')).start();
-      const seed = Math.floor(Math.random() * 1000000);
-      const primaryUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(freePrompt)}?nologo=true&private=true&enhance=false&seed=${seed}&width=1024&height=1024`;
-      const backupUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(freePrompt)}?nologo=true`;
-      
+      const prompt = userInput.slice(11).trim();
+      const spinner = ora(chalk.gray('Generating AI image...')).start();
       try {
+        const encodedPrompt = encodeURIComponent(prompt);
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}`;
+        const response = await axios.get(imageUrl, {
+          responseType: 'arraybuffer',
+          timeout: 60000
+        });
         const filename = `image_${Date.now()}.png`;
-        try {
-          const response = await axios.get(primaryUrl, { responseType: 'arraybuffer', timeout: 15000 });
-          writeFileSync(filename, response.data);
-          freeSpinner.succeed(chalk.green(`AI Image successfully saved to ${filename}`));
-        } catch (primeErr) {
-          const backupResp = await axios.get(backupUrl, { responseType: 'arraybuffer', timeout: 15000 });
-          writeFileSync(filename, backupResp.data);
-          freeSpinner.succeed(chalk.green(`AI Image generated using fallback model and saved to ${filename}`));
-        }
-      } catch (e) {
-        freeSpinner.fail(chalk.red(`⚠️ Failed to generate image. Please try again.`));
+        writeFileSync(filename, Buffer.from(response.data));
+        spinner.succeed(chalk.green(`Image saved as ${filename}`));
+      } catch (error) {
+        spinner.fail(chalk.red('Failed to generate image. Please try again.'));
       }
       continue;
     }
-    
     // Handle /audio interceptor (Bypass AI)
     if (userInput.toLowerCase().startsWith('/audio ')) {
       const audioText = userInput.slice(7).trim();
