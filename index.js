@@ -119,6 +119,18 @@ function handleApiError(error, spinner) {
     return;
   }
 
+  // Handle Network/Offline Error
+  if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('ECONNREFUSED')) {
+    const offlineMsg = chalk.yellow.bold('\n[Network Error] ') + chalk.white('You are offline or the API server is unreachable. Please check your internet connection.\n');
+    if (spinner) {
+      spinner.fail(chalk.yellow('Network Unreachable'));
+      console.log(offlineMsg);
+    } else {
+      console.error(offlineMsg);
+    }
+    return;
+  }
+
   if (spinner) {
     spinner.fail(chalk.red('Error: ' + errorMessage));
   } else {
@@ -377,7 +389,15 @@ const TOOL_HANDLERS = {
     } catch (e) { return `Error: ${e.message}`; }
   },
   executeCommand: async (args) => {
-    console.log('\n' + chalk.yellow.bold('⚠️ COMMAND AUTHORIZATION REQUIRED'));
+    // Audit for dangerous commands
+    const dangerousCommands = ['rm -rf', 'sudo', 'mv ', 'chmod', 'chown', 'wget', 'curl', 'shutdown', 'reboot'];
+    const hasDanger = dangerousCommands.some(cmd => args.command.toLowerCase().includes(cmd));
+    const multipleCommands = args.command.includes('&&') || args.command.includes(';') || args.command.includes('||');
+
+    console.log('\n' + chalk.yellow.bold('⚠️ COMMAND AUTHORIZATION' + (hasDanger ? ' (HIGH RISK)' : '') + ' REQUIRED'));
+    if (hasDanger) console.log(chalk.red.bold('! Warning: This command contains potentially destructive operations.'));
+    if (multipleCommands) console.log(chalk.red.bold('! Warning: This command string contains multiple piped or sequential commands.'));
+
     const { confirmed } = await inquirer.prompt([{
       type: 'confirm',
       name: 'confirmed',

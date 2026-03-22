@@ -1,6 +1,6 @@
 {
   "name": "ceylonx",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Ceylon X - 2026 Latest CLI AI Agent. Universal AI assistant with autonomous coding, trading signals, PPT generation, SEO audits, web scraping, vision AI, and multi-provider support.",
   "type": "module",
   "main": "index.js",
