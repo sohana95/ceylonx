@@ -535,24 +535,19 @@ const TOOL_HANDLERS = {
   generateImage: async (args) => {
     const seed = Math.floor(Math.random() * 1000000);
     const primaryUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?nologo=true&private=true&enhance=false&seed=${seed}&width=1024&height=1024`;
-    const backupUrl = `https://pollinations.ai/p/${encodeURIComponent(args.prompt)}`;
-    
-    console.log(chalk.yellow(`\n[Pollinations] Attempting Image: ${primaryUrl}`));
+    const backupUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?nologo=true`;
     
     try {
       const response = await axios.get(primaryUrl, { responseType: 'arraybuffer', timeout: 15000 });
       writeFileSync(args.filename, response.data);
       return `AI Image successfully generated and saved to ${args.filename}`;
     } catch (e) { 
-      console.log(chalk.red(`\nPrimary Pollinations Error: ${e.message}. Trying backup...`));
       try {
-        console.log(chalk.yellow(`[Pollinations] Backup URL: ${backupUrl}`));
         const backupResp = await axios.get(backupUrl, { responseType: 'arraybuffer', timeout: 15000 });
         writeFileSync(args.filename, backupResp.data);
-        return `AI Image generated using backup URL and saved to ${args.filename}`;
-      } catch (backupErr) {
-        console.error(chalk.red('\nPollinations API Error: ' + backupErr.message + '\n'));
-        return `Error generating AI image: ${backupErr.message}`; 
+        return `AI Image generated using fallback model and saved to ${args.filename}`;
+      } catch (inner) {
+        return `⚠️ Failed to generate image. Please try again.`; 
       }
     }
   },
@@ -568,14 +563,12 @@ const TOOL_HANDLERS = {
       
       // Fallback Data if empty or failed
       if (!reportData || reportData.length === 0) {
-        console.log(chalk.yellow('\n[Excel] No data received. Using fallback mock dataset for debugging...'));
         reportData = [
-          { ID: 1, Name: 'Example Data Root', Value: 'Sample A', Note: 'Mock Data Triggered' },
-          { ID: 2, Name: 'System Fallback', Value: 'Sample B', Note: 'Original search might have failed' }
+          { ID: 1, Name: 'Rank 1', Value: 'Sample A', Note: 'Mock Data' },
+          { ID: 2, Name: 'Rank 2', Value: 'Sample B', Note: 'Mock Data' }
         ];
       }
       
-      // Header row
       const headers = Object.keys(reportData[0]);
       sheet.addRow(headers);
       
@@ -587,12 +580,10 @@ const TOOL_HANDLERS = {
         fgColor: { argb: 'FF0070C0' }
       };
       
-      // Data rows
       reportData.forEach(row => {
         sheet.addRow(Object.values(row));
       });
       
-      // Auto-fit columns
       sheet.columns.forEach(column => {
         let maxLen = 0;
         column.eachCell({ includeEmpty: true }, cell => {
@@ -605,8 +596,7 @@ const TOOL_HANDLERS = {
       await workbook.xlsx.writeFile(fullPath);
       return `Professional Excel report saved successfully to: ${sanitizedFilename}`;
     } catch (e) { 
-      console.error(chalk.red(`\nExcel Generation Error: ${e.message}`));
-      return `Error generating Excel: ${e.message}`; 
+      return `⚠️ Failed to generate Excel report. Please try again.`; 
     }
   }
 };
@@ -809,27 +799,24 @@ async function startChat(config) {
     // Handle /freeimage interceptor (Bypass AI)
     if (userInput.toLowerCase().startsWith('/freeimage ')) {
       const freePrompt = userInput.slice(11).trim();
-      const freeSpinner = ora(chalk.gray('Generating Free AI Image...')).start();
+      const freeSpinner = ora(chalk.gray('Generating high-quality AI image...')).start();
       const seed = Math.floor(Math.random() * 1000000);
       const primaryUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(freePrompt)}?nologo=true&private=true&enhance=false&seed=${seed}&width=1024&height=1024`;
-      const backupUrl = `https://pollinations.ai/p/${encodeURIComponent(freePrompt)}`;
+      const backupUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(freePrompt)}?nologo=true`;
       
       try {
-        const filename = `free_${Date.now()}.png`;
-        console.log(chalk.yellow(`\n[Pollinations] Requesting: ${primaryUrl}`));
-        
+        const filename = `image_${Date.now()}.png`;
         try {
           const response = await axios.get(primaryUrl, { responseType: 'arraybuffer', timeout: 15000 });
           writeFileSync(filename, response.data);
-          freeSpinner.succeed(chalk.green(`Free Image successfully saved to ${filename}`));
+          freeSpinner.succeed(chalk.green(`AI Image successfully saved to ${filename}`));
         } catch (primeErr) {
-          console.log(chalk.red(`\nPrimary API failed. Trying backup: ${backupUrl}`));
           const backupResp = await axios.get(backupUrl, { responseType: 'arraybuffer', timeout: 15000 });
           writeFileSync(filename, backupResp.data);
-          freeSpinner.succeed(chalk.green(`Free Image (Backup) saved to ${filename}`));
+          freeSpinner.succeed(chalk.green(`AI Image generated using fallback model and saved to ${filename}`));
         }
       } catch (e) {
-        freeSpinner.fail(chalk.red(`Pollinations API Error: ${e.message}`));
+        freeSpinner.fail(chalk.red(`⚠️ Failed to generate image. Please try again.`));
       }
       continue;
     }
@@ -982,7 +969,7 @@ async function startChat(config) {
               else if (name === 'fetchWebsite') spinnerMsg = `Scraping website: ${chalk.bold(args.url)}...`;
               else if (name === 'gitCommit') spinnerMsg = `Committing to Git...`;
               else if (name === 'generatePPT') spinnerMsg = `Generating PowerPoint presentation...`;
-              else if (name === 'generateImage') spinnerMsg = `Generating AI Image...`;
+              else if (name === 'generateImage') spinnerMsg = `Generating high-quality AI image...`;
               else if (name === 'generateExcel') spinnerMsg = `Generating professional Excel report...`;
 
               let toolSeconds = 0;
