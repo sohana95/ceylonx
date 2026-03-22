@@ -61,20 +61,20 @@ const BASE_URLS = {
   [PROVIDERS.HUGGINGFACE]: 'https://api-inference.huggingface.co/v1/',
 };
 
-const DEFAULT_MODELS = {
-  [PROVIDERS.GEMINI]: 'gemini-2.0-flash',
-  [PROVIDERS.ANTHROPIC]: 'claude-3-5-sonnet-latest',
-  [PROVIDERS.OPENAI]: 'gpt-4o',
-  [PROVIDERS.GROQ]: 'llama3-8b-8192',
-  [PROVIDERS.OPENROUTER]: 'openrouter/free',
-  [PROVIDERS.NVIDIA]: 'meta/llama-3.1-405b-instruct',
-  [PROVIDERS.GITHUB]: 'gpt-4o',
-  [PROVIDERS.CEREBRAS]: 'llama3.1-8b',
-  [PROVIDERS.MISTRAL]: 'mistral-large-latest',
-  [PROVIDERS.TAALAS]: 'llama3-70b',
-  [PROVIDERS.OLLAMA]: 'llama3',
-  [PROVIDERS.CLOUDFLARE]: '@cf/meta/llama-3-8b-instruct',
-  [PROVIDERS.HUGGINGFACE]: 'meta-llama/Llama-3.3-70B-Instruct'
+const MODEL_SUGGESTIONS = {
+  [PROVIDERS.GEMINI]: ['gemini-2.0-flash', 'gemini-1.5-flash'],
+  [PROVIDERS.ANTHROPIC]: ['claude-3-5-sonnet-latest'],
+  [PROVIDERS.OPENAI]: ['gpt-4o-mini', 'gpt-4o'],
+  [PROVIDERS.GROQ]: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
+  [PROVIDERS.OPENROUTER]: ['openrouter/free'],
+  [PROVIDERS.NVIDIA]: ['meta/llama-3.1-405b-instruct'],
+  [PROVIDERS.GITHUB]: ['gpt-4o'],
+  [PROVIDERS.CEREBRAS]: ['llama3.1-8b'],
+  [PROVIDERS.MISTRAL]: ['mistral-large-latest'],
+  [PROVIDERS.TAALAS]: ['llama3-70b'],
+  [PROVIDERS.OLLAMA]: ['llama3'],
+  [PROVIDERS.CLOUDFLARE]: ['@cf/meta/llama-3-8b-instruct'],
+  [PROVIDERS.HUGGINGFACE]: ['meta-llama/Llama-3.3-70B-Instruct']
 };
 
 // Load existing config
@@ -506,7 +506,7 @@ const SYSTEM_PROMPT = `You are Ceylon X, the world's most advanced AI Agent. You
 async function configure() {
   console.log(chalk.cyan.bold('\n--- Ceylon X Setup ---\n'));
 
-  const answers = await inquirer.prompt([
+  const setup = await inquirer.prompt([
     {
       type: 'rawlist',
       name: 'provider',
@@ -522,15 +522,31 @@ async function configure() {
       mask: '*',
       when: (a) => a.provider !== PROVIDERS.OLLAMA,
       validate: (input) => input.trim().length > 0 || 'API Key is required for this provider.',
+    }
+  ]);
+
+  const modelChoice = await inquirer.prompt([
+    {
+      type: 'rawlist',
+      name: 'selectedModel',
+      message: 'Select a Model (or choose Custom):',
+      choices: (a) => [...(MODEL_SUGGESTIONS[setup.provider] || []), '>> Type Custom Model <<'],
+      loop: true
     },
     {
       type: 'input',
-      name: 'modelId',
-      message: (a) => `Enter Model ID (Default: ${DEFAULT_MODELS[a.provider]}):`,
-      default: (a) => DEFAULT_MODELS[a.provider],
+      name: 'customModel',
+      message: 'Enter your custom Model ID:',
+      when: (a) => a.selectedModel === '>> Type Custom Model <<',
       validate: (input) => input.trim().length > 0 || 'Model ID is required.',
     }
   ]);
+
+  const answers = {
+    provider: setup.provider,
+    apiKey: setup.apiKey,
+    modelId: modelChoice.customModel || modelChoice.selectedModel
+  };
 
   await saveConfig(answers);
   console.log(chalk.green('\nConfiguration saved successfully!\n'));
