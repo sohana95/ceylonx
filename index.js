@@ -514,11 +514,15 @@ const TOOL_HANDLERS = {
   },
   generateImage: async (args) => {
     try {
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?nologo=true`;
+      const seed = Math.floor(Math.random() * 1000000);
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?nologo=true&width=1024&height=1024&seed=${seed}`;
       const response = await axios.get(url, { responseType: 'arraybuffer' });
       writeFileSync(args.filename, response.data);
       return `AI Image successfully generated and saved to ${args.filename}`;
-    } catch (e) { return `Error generating AI image: ${e.message}`; }
+    } catch (e) { 
+      console.error(chalk.red('\nPollinations API Error: ' + e.message + '\n'));
+      return `Error generating AI image: ${e.message}`; 
+    }
   }
 };
 
@@ -721,12 +725,13 @@ async function startChat(config) {
       const freeSpinner = ora(chalk.gray('Generating Free AI Image...')).start();
       try {
         const filename = `free_${Date.now()}.png`;
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(freePrompt)}?nologo=true`;
+        const seed = Math.floor(Math.random() * 1000000);
+        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(freePrompt)}?nologo=true&width=1024&height=1024&seed=${seed}`;
         const response = await axios.get(url, { responseType: 'arraybuffer' });
         writeFileSync(filename, response.data);
         freeSpinner.succeed(chalk.green(`Free Image successfully saved to ${filename}`));
       } catch (e) {
-        freeSpinner.fail(chalk.red(`Error: ${e.message}`));
+        freeSpinner.fail(chalk.red(`Pollinations API Error: ${e.message}`));
       }
       continue;
     }
