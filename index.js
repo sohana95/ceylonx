@@ -19,6 +19,7 @@ import pptxgen from 'pptxgenjs';
 import axios from 'axios';
 import stripAnsi from 'strip-ansi';
 import * as googleTTS from 'google-tts-api';
+import ExcelJS from 'exceljs';
 
 // SDKs
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -342,6 +343,25 @@ const TOOLS = [
         required: ['prompt', 'filename']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'generateExcel',
+      description: 'Generates a professionally styled Excel report of data.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filename: { type: 'string', description: 'Destination filename (e.g., stats.xlsx).' },
+          sheetName: { type: 'string', description: 'Name of the worksheet.' },
+          data: {
+            type: 'array',
+            items: { type: 'object', description: 'Row data as objects.' }
+          }
+        },
+        required: ['filename', 'sheetName', 'data']
+      }
+    }
   }
 ];
 
@@ -523,10 +543,49 @@ const TOOL_HANDLERS = {
       console.error(chalk.red('\nPollinations API Error: ' + e.message + '\n'));
       return `Error generating AI image: ${e.message}`; 
     }
+  },
+  generateExcel: async (args) => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet(args.sheetName);
+      
+      if (args.data && args.data.length > 0) {
+        // Add headers
+        const headers = Object.keys(args.data[0]);
+        sheet.addRow(headers);
+        
+        // Style headers
+        const headerRow = sheet.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF0070C0' } // Professional Blue
+        };
+        
+        // Add data
+        args.data.forEach(row => {
+          sheet.addRow(Object.values(row));
+        });
+        
+        // Auto-fit columns
+        sheet.columns.forEach(column => {
+          let maxLen = 0;
+          column.eachCell({ includeEmpty: true }, cell => {
+            const val = cell.value ? cell.value.toString() : '';
+            maxLen = Math.max(maxLen, val.length);
+          });
+          column.width = maxLen < 12 ? 12 : maxLen + 2;
+        });
+      }
+      
+      await workbook.xlsx.writeFile(args.filename);
+      return `Professional Excel report generated and saved to ${args.filename}`;
+    } catch (e) { return `Error generating Excel: ${e.message}`; }
   }
 };
 
-const SYSTEM_PROMPT = `You are Ceylon X, the world's most advanced AI Agent and Multimedia Creator. You are a 10x Developer, a Crypto Trader, a Digital Marketing/SEO Expert, and a Business Strategist. Use your vast array of tools (generateImage, generatePPT, fetchWebsite, searchInternet, readImage, getProjectTree, searchFiles, etc.) to execute complex real-world workflows autonomously. If a user asks for an image, use generateImage to create stunning visuals directly to their disk. If a user drops an image, use readImage to analyze it. You produce professional, battle-tested outputs for both developer and business contexts.`;
+const SYSTEM_PROMPT = `You are Ceylon X, the world's most advanced AI Agent and Multimedia Creator. You are a 10x Developer, a Crypto Trader, a Digital Marketing/SEO Expert, and a Business Strategist. Use your vast array of tools (generateExcel, generateImage, generatePPT, fetchWebsite, searchInternet, readImage, getProjectTree, searchFiles, etc.) to execute complex real-world workflows autonomously. You can generate professional Excel reports using the generateExcel tool, complete with styled headers and auto-formatted columns. If a user asks for an image, use generateImage to create stunning visuals directly to their disk. If a user drops an image, use readImage to analyze it. You produce professional, battle-tested outputs for both developer and business contexts.`;
 
 /**
  * Configure the CLI
@@ -606,6 +665,7 @@ function showWelcomeScreen(config) {
     '• Type ' + chalk.cyan('/exit') + ' to quit',
     '• Type ' + chalk.cyan('/config') + ' to change AI provider or model',
     '• Type ' + chalk.cyan('/update') + ' to install the latest version',
+    '• Type ' + chalk.cyan('/excel <topic>') + ' to generate a data report',
     '• Type ' + chalk.cyan('/audio <text>') + ' to generate voice MP3',
     '• Type ' + chalk.cyan('/image <prompt>') + ' for AI-native visuals',
     '• Type ' + chalk.cyan('/freeimage <prompt>') + ' for unlimited free images',
@@ -704,6 +764,7 @@ async function startChat(config) {
         chalk.cyan.bold('Available Commands:'),
         '• ' + chalk.cyan('/config') + ' - Change AI provider or model',
         '• ' + chalk.cyan('/update') + ' - Fast-update to latest version',
+        '• ' + chalk.cyan('/excel <topic>') + ' - Generate professional Excel reports',
         '• ' + chalk.cyan('/ppt <topic>') + ' - Auto-generate a PowerPoint deck',
         '• ' + chalk.cyan('/seo <url>') + ' - Get a deep SEO audit & strategy',
         '• ' + chalk.cyan('/dropship <niche>') + ' - Find trending products/marketing',
@@ -770,6 +831,13 @@ async function startChat(config) {
       const topic = userInput.slice(5).trim();
       currentInput = `The user wants a presentation about ${topic}. 
       Autonomously use searchInternet to gather facts, then use the generatePPT tool to create a highly professional 5-7 slide PowerPoint presentation.`;
+    }
+    
+    if (userInput.toLowerCase().startsWith('/excel ')) {
+      const topic = userInput.slice(7).trim();
+      currentInput = `The user wants an Excel data report on: ${topic}. 
+      First, use searchInternet to gather the latest factual data (e.g., statistics, rankings, lists). 
+      Structure the data into a clean JSON array of objects. Then use the generateExcel tool to create a beautifully styled .xlsx file. Tell the user the report is ready.`;
     }
     if (userInput.toLowerCase().startsWith('/seo ')) {
       const url = userInput.slice(5).trim();
@@ -878,6 +946,7 @@ async function startChat(config) {
               else if (name === 'gitCommit') spinnerMsg = `Committing to Git...`;
               else if (name === 'generatePPT') spinnerMsg = `Generating PowerPoint presentation...`;
               else if (name === 'generateImage') spinnerMsg = `Generating AI Image...`;
+              else if (name === 'generateExcel') spinnerMsg = `Generating professional Excel report...`;
 
               let toolSeconds = 0;
               const toolSpinner = ora(chalk.gray(`${spinnerMsg} [${toolSeconds}s]`)).start();
