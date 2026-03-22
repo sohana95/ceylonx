@@ -514,7 +514,7 @@ const TOOL_HANDLERS = {
   },
   generateImage: async (args) => {
     try {
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}`;
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?nologo=true`;
       const response = await axios.get(url, { responseType: 'arraybuffer' });
       writeFileSync(args.filename, response.data);
       return `AI Image successfully generated and saved to ${args.filename}`;
@@ -706,7 +706,7 @@ async function startChat(config) {
         '• ' + chalk.cyan('/tradesignal <pair>') + ' - Real-time trade signals',
         '• ' + chalk.cyan('/audio <text>') + ' - Generate high-quality voice MP3',
         '• ' + chalk.cyan('/image <prompt>') + ' - AI-native generation (uses active model)',
-        '• ' + chalk.cyan('/freeimage <prompt>') + ' - Unlimited Free AI images (Pollinations)',
+        '• ' + chalk.cyan('/freeimage <prompt>') + ' - Unlimited Free AI Image Model',
         '• ' + chalk.cyan('/exit') + ' - Close the agent session',
         '• ' + chalk.cyan('/help') + ' - Show this menu'
       ].join('\n');
@@ -721,7 +721,7 @@ async function startChat(config) {
       const freeSpinner = ora(chalk.gray('Generating Free AI Image...')).start();
       try {
         const filename = `free_${Date.now()}.png`;
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(freePrompt)}`;
+        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(freePrompt)}?nologo=true`;
         const response = await axios.get(url, { responseType: 'arraybuffer' });
         writeFileSync(filename, response.data);
         freeSpinner.succeed(chalk.green(`Free Image successfully saved to ${filename}`));
