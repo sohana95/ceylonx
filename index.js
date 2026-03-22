@@ -18,6 +18,7 @@ import * as cheerio from 'cheerio';
 import pptxgen from 'pptxgenjs';
 import axios from 'axios';
 import stripAnsi from 'strip-ansi';
+import * as googleTTS from 'google-tts-api';
 
 // SDKs
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -601,6 +602,7 @@ function showWelcomeScreen(config) {
     '• Type ' + chalk.cyan('/exit') + ' to quit',
     '• Type ' + chalk.cyan('/config') + ' to change AI provider or model',
     '• Type ' + chalk.cyan('/update') + ' to install the latest version',
+    '• Type ' + chalk.cyan('/audio <text>') + ' to generate voice MP3',
     '• Type ' + chalk.cyan('/image <prompt>') + ' for AI-native visuals',
     '• Type ' + chalk.cyan('/freeimage <prompt>') + ' for unlimited free images',
     '• Type ' + chalk.cyan('/help') + ' for all commands',
@@ -702,6 +704,7 @@ async function startChat(config) {
         '• ' + chalk.cyan('/seo <url>') + ' - Get a deep SEO audit & strategy',
         '• ' + chalk.cyan('/dropship <niche>') + ' - Find trending products/marketing',
         '• ' + chalk.cyan('/tradesignal <pair>') + ' - Real-time trade signals',
+        '• ' + chalk.cyan('/audio <text>') + ' - Generate high-quality voice MP3',
         '• ' + chalk.cyan('/image <prompt>') + ' - AI-native generation (uses active model)',
         '• ' + chalk.cyan('/freeimage <prompt>') + ' - Unlimited Free AI images (Pollinations)',
         '• ' + chalk.cyan('/exit') + ' - Close the agent session',
@@ -724,6 +727,26 @@ async function startChat(config) {
         freeSpinner.succeed(chalk.green(`Free Image successfully saved to ${filename}`));
       } catch (e) {
         freeSpinner.fail(chalk.red(`Error: ${e.message}`));
+      }
+      continue;
+    }
+    
+    // Handle /audio interceptor (Bypass AI)
+    if (userInput.toLowerCase().startsWith('/audio ')) {
+      const audioText = userInput.slice(7).trim();
+      const audioSpinner = ora(chalk.gray('Generating Voice MP3...')).start();
+      try {
+        const filename = `audio_${Date.now()}.mp3`;
+        const base64 = await googleTTS.getAudioBase64(audioText, {
+          lang: 'en',
+          slow: false,
+          host: 'https://translate.google.com',
+        });
+        const buffer = Buffer.from(base64, 'base64');
+        writeFileSync(filename, buffer);
+        audioSpinner.succeed(chalk.green(`Voice MP3 successfully saved to ${filename}`));
+      } catch (e) {
+        audioSpinner.fail(chalk.red(`Error: ${e.message}`));
       }
       continue;
     }
