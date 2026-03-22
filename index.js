@@ -326,6 +326,21 @@ const TOOLS = [
         required: ['filePath', 'title', 'slides']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'generateImage',
+      description: 'Generates a stunning AI image using Pollinations.ai.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Highly detailed, cinematic image prompt.' },
+          filename: { type: 'string', description: 'Desired output filename (e.g., artwork.png).' }
+        },
+        required: ['prompt', 'filename']
+      }
+    }
   }
 ];
 
@@ -495,10 +510,18 @@ const TOOL_HANDLERS = {
       await pres.writeFile({ fileName: args.filePath });
       return `Professional PowerPoint generated and saved to ${args.filePath}`;
     } catch (e) { return `Error generating PPT: ${e.message}`; }
+  },
+  generateImage: async (args) => {
+    try {
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}`;
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      writeFileSync(args.filename, response.data);
+      return `AI Image successfully generated and saved to ${args.filename}`;
+    } catch (e) { return `Error generating AI image: ${e.message}`; }
   }
 };
 
-const SYSTEM_PROMPT = `You are Ceylon X, the world's most advanced AI Agent. You are a 10x Developer, a Crypto Trader, a Digital Marketing/SEO Expert, and a Business Strategist. Use your vast array of tools (generatePPT, fetchWebsite, searchInternet, readImage, getProjectTree, searchFiles, etc.) to execute complex real-world workflows autonomously. If a user drops an image, use readImage to analyze it. You produce professional, battle-tested outputs for both developer and business contexts.`;
+const SYSTEM_PROMPT = `You are Ceylon X, the world's most advanced AI Agent and Multimedia Creator. You are a 10x Developer, a Crypto Trader, a Digital Marketing/SEO Expert, and a Business Strategist. Use your vast array of tools (generateImage, generatePPT, fetchWebsite, searchInternet, readImage, getProjectTree, searchFiles, etc.) to execute complex real-world workflows autonomously. If a user asks for an image, use generateImage to create stunning visuals directly to their disk. If a user drops an image, use readImage to analyze it. You produce professional, battle-tested outputs for both developer and business contexts.`;
 
 /**
  * Configure the CLI
@@ -578,6 +601,7 @@ function showWelcomeScreen(config) {
     '• Type ' + chalk.cyan('/exit') + ' to quit',
     '• Type ' + chalk.cyan('/config') + ' to change AI provider or model',
     '• Type ' + chalk.cyan('/update') + ' to install the latest version',
+    '• Type ' + chalk.cyan('/image <prompt>') + ' to generate an AI image',
     '• Type ' + chalk.cyan('/ppt <topic>') + ' to auto-generate a PowerPoint',
     '• Type ' + chalk.cyan('/seo <url>') + ' for a deep SEO audit',
     '• Type ' + chalk.cyan('/dropship <niche>') + ' for e-commerce insights',
@@ -696,6 +720,13 @@ async function startChat(config) {
       Output a complete report: Product Name, Target Audience, Facebook Ad strategy, and Supplier ideas.`;
     }
     
+    if (userInput.toLowerCase().startsWith('/image ')) {
+      const userPrompt = userInput.slice(7).trim();
+      currentInput = `The user wants to generate an image based on: ${userPrompt}. 
+      First, expand their idea into a highly detailed, cinematic midjourney-style image prompt. 
+      Then, use the generateImage tool to create it and save it as a uniquely named .png file. Tell the user it has been saved.`;
+    }
+    
     // Handle /read legacy
     if (userInput.startsWith('/read ')) {
       const filePath = userInput.slice(6).trim();
@@ -784,6 +815,7 @@ async function startChat(config) {
               else if (name === 'fetchWebsite') spinnerMsg = `Scraping website: ${chalk.bold(args.url)}...`;
               else if (name === 'gitCommit') spinnerMsg = `Committing to Git...`;
               else if (name === 'generatePPT') spinnerMsg = `Generating PowerPoint presentation...`;
+              else if (name === 'generateImage') spinnerMsg = `Generating AI Image...`;
 
               let toolSeconds = 0;
               const toolSpinner = ora(chalk.gray(`${spinnerMsg} [${toolSeconds}s]`)).start();
