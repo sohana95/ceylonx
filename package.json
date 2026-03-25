@@ -3,12 +3,13 @@
   "version": "1.2.1",
   "description": "Ceylon X - 2026 Latest CLI AI Agent. Universal AI assistant with autonomous coding, trading signals, PPT generation, SEO audits, web scraping, vision AI, and multi-provider support.",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/index.js",
   "bin": {
-    "ceylonx": "index.js"
+    "ceylonx": "dist/index.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "javascript-obfuscator index.js --output dist/index.js --string-array true --string-array-rotate true --string-array-shuffle true --string-array-encoding base64,rc4"
   },
   "keywords": [
     "ai",
@@ -35,17 +36,24 @@
     "chalk": "^5.6.2",
     "cheerio": "^1.2.0",
     "clear": "^0.1.0",
+    "clsx": "^2.1.1",
     "commander": "^14.0.3",
     "dotenv": "^17.3.1",
     "exceljs": "^4.4.0",
     "figlet": "^1.11.0",
+    "framer-motion": "^12.38.0",
     "google-tts-api": "^2.0.2",
     "googlethis": "^1.8.0",
     "inquirer": "^13.3.2",
+    "lucide-react": "^1.0.1",
     "openai": "^6.32.0",
     "ora": "^9.3.0",
     "pptxgenjs": "^4.0.1",
     "sharp": "^0.34.5",
-    "strip-ansi": "^7.2.0"
+    "strip-ansi": "^7.2.0",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "^5.4.1"
   }
 }

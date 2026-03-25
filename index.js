@@ -30,6 +30,91 @@ import * as dotenv from 'dotenv';
 // Load environmental variables
 dotenv.config();
 
+// Secure Vault Configuration
+import crypto from 'crypto';
+import os from 'os';
+const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
+const SECRET_SALT = os.hostname() + 'CEYLONX_SECURE_VAULT_2026'; // Machine-specific salt
+const SECRET_KEY = crypto.scryptSync(SECRET_SALT, 'salt', 32);
+const IV = crypto.scryptSync(SECRET_SALT, 'iv', 16);
+
+function encrypt(text) {
+  if (!text) return null;
+  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, SECRET_KEY, IV);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return encrypted;
+}
+
+function decrypt(text) {
+  if (!text) return null;
+  try {
+    const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, SECRET_KEY, IV);
+    let decrypted = decipher.update(text, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (e) {
+    return null; // Could not decrypt (corrupted or wrong key)
+  }
+}
+
+// Developer Vault Reconstruction (Protected Tier)
+const getDevMasterKey = () => Buffer.from('aW5maXAtZjQ3ZDBmN2I=', 'base64').toString('utf8');
+const DEVELOPER_GHOSTBOT_KEY = getDevMasterKey();
+
+/**
+ * Ghostbot AI Image Generation Handler (Sync & Async)
+ */
+async function handleGhostImage(prompt, model, apiKey) {
+  const currentKey = apiKey || DEVELOPER_GHOSTBOT_KEY;
+  const spinner = ora(chalk.gray(`Ghostbot is generating using ${model}...`)).start();
+  try {
+    const response = await axios.post('https://api.infip.pro/v1/images/generations', {
+      model: model,
+      prompt: prompt,
+      n: 1,
+      size: "1024x1024",
+      response_format: "url"
+    }, {
+      headers: { 'Authorization': `Bearer ${currentKey}`, 'Content-Type': 'application/json' }
+    });
+
+    if (response.data.task_id) {
+      // Async Model (Polling)
+      const taskId = response.data.task_id;
+      spinner.text = chalk.gray(`Task queued: ${taskId}. Polling for results...`);
+      let status = 'pending';
+      let attempts = 0;
+      
+      while (status === 'pending' && attempts < 20) {
+        await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds
+        const poll = await axios.get(`https://api.infip.pro/v1/tasks/${taskId}`, {
+          headers: { 'Authorization': `Bearer ${currentKey}` }
+        });
+        status = poll.data.status;
+        if (status === 'completed') {
+          const filename = `ghost_${Date.now()}.png`;
+          const imgRes = await axios.get(poll.data.url, { responseType: 'arraybuffer' });
+          writeFileSync(filename, Buffer.from(imgRes.data));
+          spinner.succeed(chalk.green(`Ghostbot generated image saved as ${filename}`));
+          return;
+        }
+        attempts++;
+      }
+      spinner.fail(chalk.red('Ghostbot task timed out. Please try a different model.'));
+    } else if (response.data.data && response.data.data[0]) {
+      // Sync Model
+      const filename = `ghost_${Date.now()}.png`;
+      const imgRes = await axios.get(response.data.data[0].url, { responseType: 'arraybuffer' });
+      writeFileSync(filename, Buffer.from(imgRes.data));
+      spinner.succeed(chalk.green(`Ghostbot generated image saved as ${filename}`));
+    }
+  } catch (error) {
+    const msg = error.response?.data?.message || error.message;
+    spinner.fail(chalk.red(`Ghostbot Error: ${msg}`));
+  }
+}
+
 // Config path
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = path.join(__dirname, 'config.json');
@@ -48,7 +133,8 @@ const PROVIDERS = {
   TAALAS: 'Taalas',
   OLLAMA: 'Ollama (Local/Cloud)',
   CLOUDFLARE: 'Cloudflare Workers AI',
-  HUGGINGFACE: 'Hugging Face'
+  HUGGINGFACE: 'Hugging Face',
+  GHOSTBOT: 'Ghostbot AI'
 };
 
 const BASE_URLS = {
@@ -77,6 +163,56 @@ const MODEL_SUGGESTIONS = {
   [PROVIDERS.OLLAMA]: ['llama3'],
   [PROVIDERS.CLOUDFLARE]: ['@cf/meta/llama-3-8b-instruct'],
   [PROVIDERS.HUGGINGFACE]: ['meta-llama/Llama-3.3-70B-Instruct']
+};
+
+const MODEL_RECOMMENDATIONS = {
+  '/excel': {
+    recommended: [
+      { modelId: 'gemini-2.0-flash', provider: PROVIDERS.GEMINI },
+      { modelId: 'gpt-4o', provider: PROVIDERS.OPENAI }
+    ],
+    message: 'Google Gemini 2.0 Flash or OpenAI GPT-4o are better at structured data handling.'
+  },
+  '/ppt': {
+    recommended: [
+      { modelId: 'gemini-2.0-flash', provider: PROVIDERS.GEMINI },
+      { modelId: 'gpt-4o', provider: PROVIDERS.OPENAI }
+    ],
+    message: 'Google Gemini 2.0 Flash or OpenAI GPT-4o are better at layout planning.'
+  },
+  '/code': {
+    recommended: [
+      { modelId: 'claude-3-5-sonnet-latest', provider: PROVIDERS.ANTHROPIC },
+      { modelId: 'llama-3.3-70b-versatile', provider: PROVIDERS.GROQ }
+    ],
+    message: 'Anthropic Claude 3.5 Sonnet or Groq Llama 3.3 70B are superior for complex coding tasks.'
+  },
+  '/tradesignal': {
+    recommended: [
+      { modelId: 'llama-3.3-70b-versatile', provider: PROVIDERS.GROQ }
+    ],
+    message: 'Groq (Llama 3.3 70B) provides the fastest real-time data processing.'
+  }
+};
+
+/**
+ * Optimized Model Map for All Providers
+ */
+const PROVIDER_MODEL_MAP = {
+  [PROVIDERS.GEMINI]: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
+  [PROVIDERS.ANTHROPIC]: ['claude-3-5-sonnet-latest', 'claude-3-opus-latest', 'claude-3-haiku-latest'],
+  [PROVIDERS.OPENAI]: ['gpt-4o', 'gpt-4o-mini', 'o1-preview'],
+  [PROVIDERS.GROQ]: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+  [PROVIDERS.OPENROUTER]: ['openrouter/free', 'meta-llama/llama-3.1-70b', 'anthropic/claude-3.5-sonnet'],
+  [PROVIDERS.NVIDIA]: ['meta/llama-3.1-405b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct'],
+  [PROVIDERS.GITHUB]: ['gpt-4o', 'llama-3.1-405b'],
+  [PROVIDERS.CEREBRAS]: ['llama3.1-8b', 'llama3.1-70b'],
+  [PROVIDERS.MISTRAL]: ['mistral-large-latest', 'pixtral-12b-latest'],
+  [PROVIDERS.TAALAS]: ['llama3-70b', 'mistral-7b'],
+  [PROVIDERS.OLLAMA]: ['llama3', 'mistral', 'codellama'],
+  [PROVIDERS.CLOUDFLARE]: ['@cf/meta/llama-3-8b-instruct'],
+  [PROVIDERS.HUGGINGFACE]: ['meta-llama/Llama-3.3-70B-Instruct'],
+  [PROVIDERS.GHOSTBOT]: ['img3', 'img4', 'flux-schnell', 'lucid-origin', 'phoenix', 'sdxl', 'sdxl-lite', 'qwen', 'nano-banana', 'nbpro', 'z-image-turbo']
 };
 
 // Load existing config
@@ -130,12 +266,126 @@ function handleApiError(error, spinner) {
     }
     return;
   }
-
   if (spinner) {
     spinner.fail(chalk.red('Error: ' + errorMessage));
   } else {
     console.error(chalk.red('\nError: ' + errorMessage + '\n'));
   }
+}
+
+/**
+ * Initialize AI Provider
+ */
+function initializeProvider(config) {
+  let activeModelId = config.modelId;
+  if (config.provider === PROVIDERS.OPENROUTER && config.modelId === 'auto-free') {
+    activeModelId = 'openrouter/free';
+  }
+
+  let providerInstance;
+  if (config.provider === PROVIDERS.GEMINI) {
+    const genAI = new GoogleGenerativeAI(config.apiKey, { apiVersion: 'v1' });
+    providerInstance = genAI.getGenerativeModel({ model: activeModelId });
+  } else if (config.provider === PROVIDERS.ANTHROPIC) {
+    providerInstance = new Anthropic({ apiKey: config.apiKey });
+  } else {
+    const options = { apiKey: config.apiKey || 'ollama' };
+    if (BASE_URLS[config.provider]) options.baseURL = BASE_URLS[config.provider];
+    providerInstance = new OpenAI(options);
+  }
+  return { providerInstance, activeModelId };
+}
+
+/**
+ * Temporary Task-Based Model Switcher (Universal Multi-Engine Mode)
+ */
+async function checkAndGetTempModel(command, currentConfig) {
+  const recommendations = MODEL_RECOMMENDATIONS[command];
+  if (!recommendations) return null;
+
+  // Gather ALL providers from vault that have keys and suggested models
+  const vault = currentConfig.vault || {};
+  const availableChoices = [];
+
+  for (const provider of Object.values(PROVIDERS)) {
+    const encryptedKey = vault[provider];
+    if (encryptedKey || provider === PROVIDERS.OLLAMA) {
+      const models = PROVIDER_MODEL_MAP[provider] || [];
+      models.forEach(m => {
+        availableChoices.push({
+          name: `${provider.split(' ')[0]}: ${m}`,
+          value: { modelId: m, provider: provider, apiKey: decrypt(encryptedKey) }
+        });
+      });
+    }
+  }
+
+  if (availableChoices.length === 0) return null;
+
+  const taskName = command.slice(1).charAt(0).toUpperCase() + command.slice(2);
+  console.log('\n' + chalk.cyan.bold(`💎 CEYLON X VAULT: PREPARING MULTI-ENGINE FOR ${taskName.toUpperCase()}`));
+  console.log(chalk.gray(`   Optimal Recommendation: ${recommendations.message}\n`));
+
+  const { selection } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'selection',
+      message: `Which engine would you like to use for this task?`,
+      choices: [
+        ...availableChoices.sort((a,b) => {
+          // Put recommendations first
+          const aRec = recommendations.recommended.some(r => r.modelId === a.value.modelId);
+          const bRec = recommendations.recommended.some(r => r.modelId === b.value.modelId);
+          return bRec - aRec;
+        }),
+        { name: chalk.gray('Keep current model'), value: 'keep' }
+      ],
+      pageSize: 15
+    }
+  ]);
+
+  if (selection === 'keep') return null;
+
+  return {
+    ...currentConfig,
+    provider: selection.provider,
+    modelId: selection.modelId,
+    apiKey: selection.apiKey
+  };
+}
+
+/**
+ * Vault Bulk Update Manager
+ */
+async function manageVault(currentConfig) {
+  clear();
+  console.log(chalk.cyan.bold(figlet.textSync('SECURE VAULT', { font: 'Small' })));
+  console.log(chalk.white('Store all 13 API keys safely on your machine. Encrypted locally.\n'));
+
+  const vault = currentConfig.vault || {};
+  const providers = Object.values(PROVIDERS);
+  
+  const results = {};
+  for (const p of providers) {
+    if (p === PROVIDERS.OLLAMA || p === PROVIDERS.GHOSTBOT) continue;
+    const { key } = await inquirer.prompt([{
+      type: 'password',
+      name: 'key',
+      message: `Enter API Key for ${chalk.cyan(p)} (Press Enter to skip/keep current):`,
+      mask: '*'
+    }]);
+    
+    if (key.trim()) {
+      results[p] = encrypt(key.trim());
+    } else if (vault[p]) {
+      results[p] = vault[p];
+    }
+  }
+
+  currentConfig.vault = results;
+  await saveConfig(currentConfig);
+  console.log(chalk.green('\n✅ Secure Vault updated. All 13 providers are now ready.\n'));
+  return currentConfig;
 }
 
 /**
@@ -621,7 +871,17 @@ const TOOL_HANDLERS = {
   }
 };
 
-const SYSTEM_PROMPT = `You are Ceylon X, the world's most advanced AI Agent and Multimedia Creator. You are a 10x Developer, a Crypto Trader, a Digital Marketing/SEO Expert, and a Business Strategist. Use your vast array of tools (generateExcel, generateImage, generatePPT, fetchWebsite, searchInternet, readImage, getProjectTree, searchFiles, etc.) to execute complex real-world workflows autonomously. You can generate professional Excel reports using the generateExcel tool, complete with styled headers and auto-formatted columns. If a user asks for an image, use generateImage to create stunning visuals directly to their disk. If a user drops an image, use readImage to analyze it. You produce professional, battle-tested outputs for both developer and business contexts.`;
+const SYSTEM_PROMPT = `You are Ceylon X, a 2026 Adaptive Super-Intelligence Agent. You are a '2026 Elite Full-Stack & Cyber Security Engineer', a Crypto Trader, and a Business Strategist. 
+
+INTEGRITY & EXPLANATION:
+- Always explain your actions clearly (e.g., 'I am reading the latest Next.js 15 docs to ensure modern practices...').
+- If a tool fails, self-correct autonomously (try a different search query, fallback method, or refine parameters).
+
+ELITE ENGINEERING MODE (/code):
+- Prioritize: Modern UI/UX, Security Best Practices (OWASP), Performance Optimization, and Self-Correction.
+- Workflow: Analyze -> Research (searchInternet for new tech) -> Plan (getProjectTree) -> Write (writeFile) -> QA (readFile back to check for syntax/security).
+
+Use your tools (generateExcel, generateImage, generatePPT, fetchWebsite, searchInternet, readImage, getProjectTree, searchFiles, etc.) to execute complex real-world workflows autonomously.`;
 
 /**
  * Configure the CLI
@@ -629,24 +889,34 @@ const SYSTEM_PROMPT = `You are Ceylon X, the world's most advanced AI Agent and 
 async function configure() {
   console.log(chalk.cyan.bold('\n--- Ceylon X Setup ---\n'));
 
+  const config = await loadConfig() || {};
+  const vault = config.vault || {};
+
   const setup = await inquirer.prompt([
     {
       type: 'rawlist',
       name: 'provider',
       message: 'Select your AI Provider:',
-      choices: Object.values(PROVIDERS),
+      choices: Object.values(PROVIDERS).filter(p => p !== PROVIDERS.GHOSTBOT),
       loop: true,
       pageSize: 12
     },
     {
       type: 'password',
       name: 'apiKey',
-      message: 'Enter your API Key:',
+      message: 'Enter your API Key (or press Enter to use Vault key):',
       mask: '*',
       when: (a) => a.provider !== PROVIDERS.OLLAMA,
-      validate: (input) => input.trim().length > 0 || 'API Key is required for this provider.',
     }
   ]);
+
+  let finalApiKey = setup.apiKey;
+  if (!finalApiKey && vault[setup.provider]) {
+    finalApiKey = decrypt(vault[setup.provider]);
+  } else if (finalApiKey) {
+    // Save to vault automatically on individual update
+    vault[setup.provider] = encrypt(finalApiKey);
+  }
 
   const modelChoice = await inquirer.prompt([
     {
@@ -667,8 +937,9 @@ async function configure() {
 
   const answers = {
     provider: setup.provider,
-    apiKey: setup.apiKey,
-    modelId: modelChoice.customModel || modelChoice.selectedModel
+    apiKey: finalApiKey,
+    modelId: modelChoice.customModel || modelChoice.selectedModel,
+    vault: vault
   };
 
   await saveConfig(answers);
@@ -692,21 +963,17 @@ function showWelcomeScreen(config) {
   const titleLines = figlet.textSync('CEYLON X', { font: 'Slant', horizontalLayout: 'full' }).split('\n');
   titleLines.forEach(line => console.log(center(chalk.cyan(line))));
   
-  console.log(center(chalk.white.italic('      2026 Latest Cli AI Agent | Dev Sohan d Perera\n')));
+  console.log(center(chalk.white.italic('      2026 Latest Cli AI Agent\n')));
 
   const providerLabel = chalk.bold('Active Provider: ') + chalk.cyan(config.provider);
   const ethicalTip = chalk.gray('      [ Unlimited capabilities powered by AI. Please use in an ethical way. ]\n');
   const modelLabel = chalk.bold('Active Model: ')    + chalk.white(config.modelId);
   const tips = [
     '• Type ' + chalk.cyan('/exit') + ' to quit',
-    '• Type ' + chalk.cyan('/config') + ' to change AI provider or model',
-    '• Type ' + chalk.cyan('/update') + ' to install the latest version',
-    '• Type ' + chalk.cyan('/excel <topic>') + ' to generate a data report',
-    '• Type ' + chalk.cyan('/audio <text>') + ' to generate voice MP3',
-    '• Type ' + chalk.cyan('/image <prompt>') + ' for AI-native visuals',
-    '• Type ' + chalk.cyan('/freeimage <prompt>') + ' for unlimited free images',
-    '• Type ' + chalk.cyan('/help') + ' for all commands',
-    '• Just type anything to start building'
+    '• Type ' + chalk.cyan('/config') + ' to change AI engine',
+    '• Type ' + chalk.cyan('/vault') + ' if you want update all api key safely',
+    '• Type ' + chalk.cyan('/help') + ' for the full command menu',
+    '• Just type any task to begin'
   ].join('\n');
 
   console.log(
@@ -732,31 +999,7 @@ async function startChat(config) {
   showWelcomeScreen(config);
   console.log(chalk.gray('--- Start Safe & Secure chat ---\n'));
   
-  let activeModelId = config.modelId;
-
-  // Handle OpenRouter Auto-Free
-  if (config.provider === PROVIDERS.OPENROUTER && config.modelId === 'auto-free') {
-    activeModelId = 'openrouter/free';
-  }
-
-  let providerInstance;
-  
-  // Initialize Provider
-  try {
-    if (config.provider === PROVIDERS.GEMINI) {
-      const genAI = new GoogleGenerativeAI(config.apiKey, { apiVersion: 'v1' });
-      providerInstance = genAI.getGenerativeModel({ model: activeModelId });
-    } else if (config.provider === PROVIDERS.ANTHROPIC) {
-      providerInstance = new Anthropic({ apiKey: config.apiKey });
-    } else {
-      const options = { apiKey: config.apiKey || 'ollama' };
-      if (BASE_URLS[config.provider]) options.baseURL = BASE_URLS[config.provider];
-      providerInstance = new OpenAI(options);
-    }
-  } catch (err) {
-    console.error(chalk.red('Failed to initialize provider: ' + err.message));
-    return;
-  }
+  let { providerInstance, activeModelId } = initializeProvider(config);
 
   const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
 
@@ -780,7 +1023,44 @@ async function startChat(config) {
       return startChat(config);
     }
 
+    if (userInput.toLowerCase() === '/vault') {
+      config = await manageVault(config);
+      return startChat(config);
+    }
+
+    const specialCommands = ['/excel', '/ppt', '/code', '/tradesignal'];
+    const commandUsed = specialCommands.find(c => userInput.toLowerCase().startsWith(c));
+    
+    let isTemporarySwitch = false;
+    const originalProviderInstance = providerInstance;
+    const originalActiveModelId = activeModelId;
+
+    if (commandUsed) {
+      const tempConfig = await checkAndGetTempModel(commandUsed, config);
+      if (tempConfig) {
+        const init = initializeProvider(tempConfig);
+        providerInstance = init.providerInstance;
+        activeModelId = init.activeModelId;
+        isTemporarySwitch = true;
+      }
+    }
+
     let currentInput = userInput;
+
+    // Handle /code interceptor (Elite Engineering Mode)
+    if (userInput.toLowerCase().startsWith('/code ')) {
+      const task = userInput.slice(6).trim();
+      currentInput = `ELITE ENGINEERING MODE: ${task}
+      
+ACT AS AN ELITE 2026 ENGINEER:
+1. ANALYSIS: Deconstruct the task into logical components.
+2. SEARCH: If using new frameworks/libraries, searchInternet for latest docs.
+3. PLANNING: Use getProjectTree to map the workspace architecturally.
+4. CODING: Write robust, secure, and clean code using writeFile.
+5. QA & SELF-HEALING: Use readFile immediately after writing to check for errors/vulnerabilities. Fix them autonomously.
+
+GO: Build a professional, production-ready solution.`;
+    }
 
     // Handle /update interceptor
     if (userInput.toLowerCase() === '/update') {
@@ -797,43 +1077,56 @@ async function startChat(config) {
     // Handle /help interceptor
     if (userInput.toLowerCase() === '/help') {
       const helpContent = [
-        chalk.cyan.bold('Available Commands:'),
-        '• ' + chalk.cyan('/config') + ' - Change AI provider or model',
-        '• ' + chalk.cyan('/update') + ' - Fast-update to latest version',
-        '• ' + chalk.cyan('/excel <topic>') + ' - Generate professional Excel reports',
-        '• ' + chalk.cyan('/ppt <topic>') + ' - Auto-generate a PowerPoint deck',
-        '• ' + chalk.cyan('/seo <url>') + ' - Get a deep SEO audit & strategy',
-        '• ' + chalk.cyan('/dropship <niche>') + ' - Find trending products/marketing',
-        '• ' + chalk.cyan('/tradesignal <pair>') + ' - Real-time trade signals',
+        chalk.cyan.bold('--- BASIC SYSTEM COMMANDS ---'),
+        '• ' + chalk.cyan('/config')    + ' - Change AI provider or model',
+        '• ' + chalk.cyan('/vault')     + ' - If you want update all api key safely',
+        '• ' + chalk.cyan('/update')    + ' - Fast-update to latest version',
+        '• ' + chalk.cyan('/freeimage <prompt>') + ' - Unlimited Free AI Image Model',
+        '• ' + chalk.cyan('/ghostimage')      + ' - Premium Multi-Model Image Engine',
+        '• ' + chalk.cyan('/help')      + ' - Show this detailed menu',
+        '• ' + chalk.cyan('/exit')      + ' - Close the agent session',
+        '',
+        chalk.yellow.bold('--- ADVANCED AI ENGINEERING MODE ---'),
+        '• ' + chalk.cyan('/code <task>') + chalk.gray(' (Best Free: Groq Llama 3.3 70B)'),
+        '• ' + chalk.cyan('/excel <topic>') + chalk.gray(' (Best Free: Gemini 2.0 Flash)'),
+        '• ' + chalk.cyan('/ppt <topic>') + chalk.gray(' (Best Free: Gemini 2.0 Flash)'),
+        '• ' + chalk.cyan('/tradesignal <pair>') + chalk.gray(' (Best Free: Groq Llama 3.3 70B)'),
         '• ' + chalk.cyan('/audio <text>') + ' - Generate high-quality voice MP3',
         '• ' + chalk.cyan('/image <prompt>') + ' - AI-native generation (uses active model)',
-        '• ' + chalk.cyan('/freeimage <prompt>') + ' - Unlimited Free AI Image Model',
-        '• ' + chalk.cyan('/exit') + ' - Close the agent session',
-        '• ' + chalk.cyan('/help') + ' - Show this menu'
+        '',
+        chalk.gray('  Just type anything else to start building with Ceylon X.')
       ].join('\n');
 
       console.log(boxen(helpContent, { padding: 1, borderStyle: 'round', borderColor: 'yellow' }));
       continue;
     }
     
-    if (userInput.toLowerCase().startsWith('/freeimage ')) {
-      const prompt = userInput.slice(11).trim();
-      const spinner = ora(chalk.gray('Generating AI image...')).start();
-      try {
-        const encodedPrompt = encodeURIComponent(prompt);
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}`;
-        const response = await axios.get(imageUrl, {
-          responseType: 'arraybuffer',
-          timeout: 60000
-        });
-        const filename = `image_${Date.now()}.png`;
-        writeFileSync(filename, Buffer.from(response.data));
-        spinner.succeed(chalk.green(`Image saved as ${filename}`));
-      } catch (error) {
-        spinner.fail(chalk.red('Failed to generate image. Please try again.'));
+    if (userInput.toLowerCase().startsWith('/freeimage')) {
+      let promptInput = userInput.slice(11).trim();
+      if (!promptInput) {
+        const res = await inquirer.prompt([{ type: 'input', name: 'p', message: `Enter your prompt for image generation:` }]);
+        promptInput = res.p;
       }
+      if (!promptInput) continue;
+
+      // Automatically use the best overall model (Ghostbot: img4) with hidden developer key
+      await handleGhostImage(promptInput, 'img4', DEVELOPER_GHOSTBOT_KEY);
       continue;
     }
+
+    if (userInput.toLowerCase().startsWith('/ghostimage')) {
+      const { prompt } = await inquirer.prompt([{ type: 'input', name: 'prompt', message: 'Enter image prompt:' }]);
+      const { model } = await inquirer.prompt([{
+        type: 'list',
+        name: 'model',
+        message: 'Select Ghostbot Model:',
+        choices: PROVIDER_MODEL_MAP[PROVIDERS.GHOSTBOT]
+      }]);
+
+      await handleGhostImage(prompt, model, DEVELOPER_GHOSTBOT_KEY);
+      continue;
+    }
+
     // Handle /audio interceptor (Bypass AI)
     if (userInput.toLowerCase().startsWith('/audio ')) {
       const audioText = userInput.slice(7).trim();
@@ -914,12 +1207,17 @@ async function startChat(config) {
     let isThinking = true;
 
     while (isThinking) {
-      let seconds = 0;
-      const mainSpinner = ora(chalk.gray('Ceylon X is thinking...')).start();
+      let ms = 0;
+      const taskLabel = commandUsed ? commandUsed.slice(1).toUpperCase() : 'TASK';
+      const spinnerPrefix = isTemporarySwitch 
+        ? `Generating ${taskLabel} using ${activeModelId} (Temporary)...` 
+        : 'Ceylon X is thinking...';
+
+      const mainSpinner = ora(chalk.gray(spinnerPrefix)).start();
       const timer = setInterval(() => {
-        seconds++;
-        mainSpinner.text = chalk.gray(`Ceylon X is thinking... [${seconds}s]`);
-      }, 1000);
+        ms += 100;
+        mainSpinner.text = chalk.gray(`${spinnerPrefix} [${(ms / 1000).toFixed(1)}s]`);
+      }, 100);
       
       try {
         if (config.provider === PROVIDERS.GEMINI) {
@@ -985,12 +1283,12 @@ async function startChat(config) {
               else if (name === 'generateImage') spinnerMsg = `Generating high-quality AI image...`;
               else if (name === 'generateExcel') spinnerMsg = `Generating professional Excel report...`;
 
-              let toolSeconds = 0;
-              const toolSpinner = ora(chalk.gray(`${spinnerMsg} [${toolSeconds}s]`)).start();
+              let toolMs = 0;
+              const toolSpinner = ora(chalk.gray(`${spinnerMsg} [${(toolMs / 1000).toFixed(1)}s]`)).start();
               const toolTimer = setInterval(() => {
-                toolSeconds++;
-                toolSpinner.text = chalk.gray(`${spinnerMsg} [${toolSeconds}s]`);
-              }, 1000);
+                toolMs += 100;
+                toolSpinner.text = chalk.gray(`${spinnerMsg} [${(toolMs / 1000).toFixed(1)}s]`);
+              }, 100);
 
               const result = await TOOL_HANDLERS[name](args);
               clearInterval(toolTimer);
@@ -1018,6 +1316,13 @@ async function startChat(config) {
         handleApiError(error, mainSpinner);
         isThinking = false;
       }
+    }
+
+    if (isTemporarySwitch) {
+      providerInstance = originalProviderInstance;
+      activeModelId = originalActiveModelId;
+      console.log(chalk.gray(`\n✅ Task complete. Reverted to your main model: ${activeModelId}.\n`));
+      isTemporarySwitch = false;
     }
   }
 }
