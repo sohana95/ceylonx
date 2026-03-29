@@ -1,6 +1,0 @@
-[
-  {
-    "time": "0 9 * * *",
-    "task": "Run full repo audit and save to report.txt"
-  }
-]
