@@ -1,1359 +1,417 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander';
-import inquirer from 'inquirer';
+/**
+ * Ceylon X - 2026 Autonomous Super-Intelligence CLI Agent
+ * Universal Multi-Provider Engine, Computer Use, and Advanced Agentic Features.
+ */
+
+import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
+import { select, input, confirm, password } from '@inquirer/prompts';
 import chalk from 'chalk';
 import ora from 'ora';
 import clear from 'clear';
 import figlet from 'figlet';
 import boxen from 'boxen';
-import { readFile, writeFile } from 'fs/promises';
-import { existsSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
-import { execSync } from 'child_process';
-import google from 'googlethis';
+import gradient from 'gradient-string';
+import { readFile, writeFile, readdir } from 'fs/promises';
+import { existsSync, readFileSync } from 'fs';
+import { exec, execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import sharp from 'sharp';
-import * as cheerio from 'cheerio';
-import pptxgen from 'pptxgenjs';
-import axios from 'axios';
-import stripAnsi from 'strip-ansi';
-import * as googleTTS from 'google-tts-api';
-import ExcelJS from 'exceljs';
-
-// SDKs
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
+import crypto from 'crypto';
+import os from 'os';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import cron from 'node-cron';
+import express from 'express';
+import bodyParser from 'body-parser';
+import screenshot from 'screenshot-desktop';
+import { mouse, keyboard, screen, Button, Key, Point } from '@nut-tree-fork/nut-js';
 
 // Load environmental variables
 dotenv.config();
 
-// Secure Vault Configuration
-import crypto from 'crypto';
-import os from 'os';
+// --- CONFIGURATION STORE ---
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CONFIG_PATH = path.join(__dirname, 'config.json');
+
+// --- SECURE VAULT ---
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
-const SECRET_SALT = os.hostname() + 'CEYLONX_SECURE_VAULT_2026'; // Machine-specific salt
+const SECRET_SALT = os.hostname() + 'CEYLONX_SECURE_VAULT_2026';
 const SECRET_KEY = crypto.scryptSync(SECRET_SALT, 'salt', 32);
 const IV = crypto.scryptSync(SECRET_SALT, 'iv', 16);
 
 function encrypt(text) {
-  if (!text) return null;
-  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, SECRET_KEY, IV);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return encrypted;
+    if (!text) return null;
+    const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, SECRET_KEY, IV);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return encrypted;
 }
 
 function decrypt(text) {
-  if (!text) return null;
-  try {
-    const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, SECRET_KEY, IV);
-    let decrypted = decipher.update(text, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
-  } catch (e) {
-    return null; // Could not decrypt (corrupted or wrong key)
-  }
-}
-
-// Developer Vault Reconstruction (Protected Tier)
-const getDevMasterKey = () => Buffer.from('aW5maXAtZjQ3ZDBmN2I=', 'base64').toString('utf8');
-const DEVELOPER_GHOSTBOT_KEY = getDevMasterKey();
-
-/**
- * Ghostbot AI Image Generation Handler (Sync & Async)
- */
-async function handleGhostImage(prompt, model, apiKey) {
-  const currentKey = apiKey || DEVELOPER_GHOSTBOT_KEY;
-  const spinner = ora(chalk.gray(`Ghostbot is generating using ${model}...`)).start();
-  try {
-    const response = await axios.post('https://api.infip.pro/v1/images/generations', {
-      model: model,
-      prompt: prompt,
-      n: 1,
-      size: "1024x1024",
-      response_format: "url"
-    }, {
-      headers: { 'Authorization': `Bearer ${currentKey}`, 'Content-Type': 'application/json' }
-    });
-
-    if (response.data.task_id) {
-      // Async Model (Polling)
-      const taskId = response.data.task_id;
-      spinner.text = chalk.gray(`Task queued: ${taskId}. Polling for results...`);
-      let status = 'pending';
-      let attempts = 0;
-      
-      while (status === 'pending' && attempts < 20) {
-        await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds
-        const poll = await axios.get(`https://api.infip.pro/v1/tasks/${taskId}`, {
-          headers: { 'Authorization': `Bearer ${currentKey}` }
-        });
-        status = poll.data.status;
-        if (status === 'completed') {
-          const filename = `ghost_${Date.now()}.png`;
-          const imgRes = await axios.get(poll.data.url, { responseType: 'arraybuffer' });
-          writeFileSync(filename, Buffer.from(imgRes.data));
-          spinner.succeed(chalk.green(`Ghostbot generated image saved as ${filename}`));
-          return;
-        }
-        attempts++;
-      }
-      spinner.fail(chalk.red('Ghostbot task timed out. Please try a different model.'));
-    } else if (response.data.data && response.data.data[0]) {
-      // Sync Model
-      const filename = `ghost_${Date.now()}.png`;
-      const imgRes = await axios.get(response.data.data[0].url, { responseType: 'arraybuffer' });
-      writeFileSync(filename, Buffer.from(imgRes.data));
-      spinner.succeed(chalk.green(`Ghostbot generated image saved as ${filename}`));
-    }
-  } catch (error) {
-    const msg = error.response?.data?.message || error.message;
-    spinner.fail(chalk.red(`Ghostbot Error: ${msg}`));
-  }
-}
-
-// Config path
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CONFIG_PATH = path.join(__dirname, 'config.json');
-
-// Constants
-const PROVIDERS = {
-  GEMINI: 'Google Gemini (via @google/genai)',
-  ANTHROPIC: 'Anthropic (via @anthropic-ai/sdk)',
-  OPENAI: 'OpenAI (via openai)',
-  GROQ: 'Groq',
-  OPENROUTER: 'OpenRouter',
-  NVIDIA: 'NVIDIA NIM',
-  GITHUB: 'GitHub Models',
-  CEREBRAS: 'Cerebras AI',
-  MISTRAL: 'Mistral AI',
-  TAALAS: 'Taalas',
-  OLLAMA: 'Ollama (Local/Cloud)',
-  CLOUDFLARE: 'Cloudflare Workers AI',
-  HUGGINGFACE: 'Hugging Face',
-  GHOSTBOT: 'Ghostbot AI'
-};
-
-const BASE_URLS = {
-  [PROVIDERS.GROQ]: 'https://api.groq.com/openai/v1',
-  [PROVIDERS.OPENROUTER]: 'https://openrouter.ai/api/v1',
-  [PROVIDERS.NVIDIA]: 'https://integrate.api.nvidia.com/v1',
-  [PROVIDERS.GITHUB]: 'https://models.inference.ai.azure.com',
-  [PROVIDERS.CEREBRAS]: 'https://api.cerebras.ai/v1',
-  [PROVIDERS.MISTRAL]: 'https://api.mistral.ai/v1',
-  [PROVIDERS.TAALAS]: 'https://api.taalas.com/v1',
-  [PROVIDERS.OLLAMA]: 'http://localhost:11434/v1',
-  [PROVIDERS.HUGGINGFACE]: 'https://router.huggingface.co/hf-inference/v1',
-};
-
-const MODEL_SUGGESTIONS = {
-  [PROVIDERS.GEMINI]: ['gemini-2.0-flash', 'gemini-1.5-flash'],
-  [PROVIDERS.ANTHROPIC]: ['claude-3-5-sonnet-latest'],
-  [PROVIDERS.OPENAI]: ['gpt-4o-mini', 'gpt-4o'],
-  [PROVIDERS.GROQ]: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
-  [PROVIDERS.OPENROUTER]: ['openrouter/free'],
-  [PROVIDERS.NVIDIA]: ['meta/llama-3.1-405b-instruct'],
-  [PROVIDERS.GITHUB]: ['gpt-4o'],
-  [PROVIDERS.CEREBRAS]: ['llama3.1-8b'],
-  [PROVIDERS.MISTRAL]: ['mistral-large-latest'],
-  [PROVIDERS.TAALAS]: ['llama3-70b'],
-  [PROVIDERS.OLLAMA]: ['llama3'],
-  [PROVIDERS.CLOUDFLARE]: ['@cf/meta/llama-3-8b-instruct'],
-  [PROVIDERS.HUGGINGFACE]: ['meta-llama/Llama-3.3-70B-Instruct']
-};
-
-const MODEL_RECOMMENDATIONS = {
-  '/excel': {
-    recommended: [
-      { modelId: 'gemini-2.0-flash', provider: PROVIDERS.GEMINI },
-      { modelId: 'gpt-4o', provider: PROVIDERS.OPENAI }
-    ],
-    message: 'Google Gemini 2.0 Flash or OpenAI GPT-4o are better at structured data handling.'
-  },
-  '/ppt': {
-    recommended: [
-      { modelId: 'gemini-2.0-flash', provider: PROVIDERS.GEMINI },
-      { modelId: 'gpt-4o', provider: PROVIDERS.OPENAI }
-    ],
-    message: 'Google Gemini 2.0 Flash or OpenAI GPT-4o are better at layout planning.'
-  },
-  '/code': {
-    recommended: [
-      { modelId: 'claude-3-5-sonnet-latest', provider: PROVIDERS.ANTHROPIC },
-      { modelId: 'llama-3.3-70b-versatile', provider: PROVIDERS.GROQ }
-    ],
-    message: 'Anthropic Claude 3.5 Sonnet or Groq Llama 3.3 70B are superior for complex coding tasks.'
-  },
-  '/tradesignal': {
-    recommended: [
-      { modelId: 'llama-3.3-70b-versatile', provider: PROVIDERS.GROQ }
-    ],
-    message: 'Groq (Llama 3.3 70B) provides the fastest real-time data processing.'
-  }
-};
-
-/**
- * Optimized Model Map for All Providers
- */
-const PROVIDER_MODEL_MAP = {
-  [PROVIDERS.GEMINI]: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
-  [PROVIDERS.ANTHROPIC]: ['claude-3-5-sonnet-latest', 'claude-3-opus-latest', 'claude-3-haiku-latest'],
-  [PROVIDERS.OPENAI]: ['gpt-4o', 'gpt-4o-mini', 'o1-preview'],
-  [PROVIDERS.GROQ]: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
-  [PROVIDERS.OPENROUTER]: ['openrouter/free', 'meta-llama/llama-3.1-70b', 'anthropic/claude-3.5-sonnet'],
-  [PROVIDERS.NVIDIA]: ['meta/llama-3.1-405b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct'],
-  [PROVIDERS.GITHUB]: ['gpt-4o', 'llama-3.1-405b'],
-  [PROVIDERS.CEREBRAS]: ['llama3.1-8b', 'llama3.1-70b'],
-  [PROVIDERS.MISTRAL]: ['mistral-large-latest', 'pixtral-12b-latest'],
-  [PROVIDERS.TAALAS]: ['llama3-70b', 'mistral-7b'],
-  [PROVIDERS.OLLAMA]: ['llama3', 'mistral', 'codellama'],
-  [PROVIDERS.CLOUDFLARE]: ['@cf/meta/llama-3-8b-instruct'],
-  [PROVIDERS.HUGGINGFACE]: ['meta-llama/Llama-3.3-70B-Instruct'],
-  [PROVIDERS.GHOSTBOT]: ['img3', 'img4', 'flux-schnell', 'lucid-origin', 'phoenix', 'sdxl', 'sdxl-lite', 'qwen', 'nano-banana', 'nbpro', 'z-image-turbo']
-};
-
-// Load existing config
-async function loadConfig() {
-  if (existsSync(CONFIG_PATH)) {
+    if (!text) return null;
     try {
-      const data = await readFile(CONFIG_PATH, 'utf8');
-      const config = JSON.parse(data);
-      // Ensure the config actually has valid data
-      if (config && config.provider && config.modelId) {
-        return config;
-      }
+        const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, SECRET_KEY, IV);
+        let decrypted = decipher.update(text, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
     } catch (e) {
-      return null;
+        return null;
     }
-  }
-  return null;
 }
 
-// Save config
-async function saveConfig(config) {
-  await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
-}
+// --- PROVIDER METADATA (19 Providers) ---
+const PROVIDER_METADATA = {
+    'Anthropic': { type: 'anthropic' },
+    'Google Gemini': { type: 'gemini' },
+    'OpenAI': { type: 'openai', baseUrl: 'https://api.openai.com/v1' },
+    'Groq': { type: 'openai', baseUrl: 'https://api.groq.com/openai/v1' },
+    'OpenRouter': { type: 'openai', baseUrl: 'https://openrouter.ai/api/v1' },
+    'Ollama (Local/Remote)': { type: 'openai' }, // Dynamic URL
+    'GitHub Models': { type: 'openai', baseUrl: 'https://models.inference.ai.azure.com' },
+    'SambaNova': { type: 'openai', baseUrl: 'https://api.sambanova.ai/v1' },
+    'Hyperbolic': { type: 'openai', baseUrl: 'https://api.hyperbolic.xyz/v1' },
+    'Cerebras': { type: 'openai', baseUrl: 'https://api.cerebras.ai/v1' },
+    'GLHF': { type: 'openai', baseUrl: 'https://glhf.chat/api/openai/v1' },
+    'DeepSeek': { type: 'openai', baseUrl: 'https://api.deepseek.com' },
+    'Mistral': { type: 'openai', baseUrl: 'https://api.mistral.ai/v1' },
+    'Cohere': { type: 'openai', baseUrl: 'https://api.cohere.com/v2' },
+    'Perplexity': { type: 'openai', baseUrl: 'https://api.perplexity.ai' },
+    'Together AI': { type: 'openai', baseUrl: 'https://api.together.xyz/v1' },
+    'xAI (Grok)': { type: 'openai', baseUrl: 'https://api.x.ai/v1' },
+    'Fireworks AI': { type: 'openai', baseUrl: 'https://api.fireworks.ai/inference/v1' },
+    'HuggingFace': { type: 'openai', baseUrl: 'https://router.huggingface.co/hf-inference/v1' }
+};
 
-/**
- * Enhanced error handler for API
- */
-function handleApiError(error, spinner) {
-  let errorMessage = error.message || 'An unexpected error occurred.';
-  
-  // Handle 401 Authentication Error Gracefully
-  if (errorMessage.includes('401')) {
-    const authFailedMsg = chalk.red.bold('\n[Authentication Failed] ') + chalk.white('Your API Key is invalid or expired. Please type ') + chalk.cyan('/config') + chalk.white(' to enter a new API key.\n');
-    if (spinner) {
-      spinner.fail(chalk.red('Authentication Failed'));
-      console.log(authFailedMsg);
-    } else {
-      console.error(authFailedMsg);
-    }
-    return;
-  }
+const PROVIDERS = Object.keys(PROVIDER_METADATA);
 
-  // Handle Network/Offline Error
-  if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('ECONNREFUSED')) {
-    const offlineMsg = chalk.yellow.bold('\n[Network Error] ') + chalk.white('You are offline or the API server is unreachable. Please check your internet connection.\n');
-    if (spinner) {
-      spinner.fail(chalk.yellow('Network Unreachable'));
-      console.log(offlineMsg);
-    } else {
-      console.error(offlineMsg);
-    }
-    return;
-  }
-  if (spinner) {
-    spinner.fail(chalk.red('Error: ' + errorMessage));
-  } else {
-    console.error(chalk.red('\nError: ' + errorMessage + '\n'));
-  }
-}
+// --- STATE ---
+let autoMode = false;
 
-/**
- * Initialize AI Provider
- */
-function initializeProvider(config) {
-  let activeModelId = config.modelId;
-  if (config.provider === PROVIDERS.OPENROUTER && config.modelId === 'auto-free') {
-    activeModelId = 'openrouter/free';
-  }
-
-  let providerInstance;
-  if (config.provider === PROVIDERS.GEMINI) {
-    const genAI = new GoogleGenerativeAI(config.apiKey, { apiVersion: 'v1' });
-    providerInstance = genAI.getGenerativeModel({ model: activeModelId });
-  } else if (config.provider === PROVIDERS.ANTHROPIC) {
-    providerInstance = new Anthropic({ apiKey: config.apiKey });
-  } else {
-    const options = { apiKey: config.apiKey || 'ollama' };
-    if (BASE_URLS[config.provider]) options.baseURL = BASE_URLS[config.provider];
-    providerInstance = new OpenAI(options);
-  }
-  return { providerInstance, activeModelId };
-}
-
-/**
- * Temporary Task-Based Model Switcher (Universal Multi-Engine Mode)
- */
-async function checkAndGetTempModel(command, currentConfig) {
-  const recommendations = MODEL_RECOMMENDATIONS[command];
-  if (!recommendations) return null;
-
-  // Gather ALL providers from vault that have keys and suggested models
-  const vault = currentConfig.vault || {};
-  const availableChoices = [];
-
-  for (const provider of Object.values(PROVIDERS)) {
-    const encryptedKey = vault[provider];
-    if (encryptedKey || provider === PROVIDERS.OLLAMA) {
-      const models = PROVIDER_MODEL_MAP[provider] || [];
-      models.forEach(m => {
-        availableChoices.push({
-          name: `${provider.split(' ')[0]}: ${m}`,
-          value: { modelId: m, provider: provider, apiKey: decrypt(encryptedKey) }
-        });
-      });
-    }
-  }
-
-  if (availableChoices.length === 0) return null;
-
-  const taskName = command.slice(1).charAt(0).toUpperCase() + command.slice(2);
-  console.log('\n' + chalk.cyan.bold(`💎 CEYLON X VAULT: PREPARING MULTI-ENGINE FOR ${taskName.toUpperCase()}`));
-  console.log(chalk.gray(`   Optimal Recommendation: ${recommendations.message}\n`));
-
-  const { selection } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'selection',
-      message: `Which engine would you like to use for this task?`,
-      choices: [
-        ...availableChoices.sort((a,b) => {
-          // Put recommendations first
-          const aRec = recommendations.recommended.some(r => r.modelId === a.value.modelId);
-          const bRec = recommendations.recommended.some(r => r.modelId === b.value.modelId);
-          return bRec - aRec;
-        }),
-        { name: chalk.gray('Keep current model'), value: 'keep' }
-      ],
-      pageSize: 15
-    }
-  ]);
-
-  if (selection === 'keep') return null;
-
-  return {
-    ...currentConfig,
-    provider: selection.provider,
-    modelId: selection.modelId,
-    apiKey: selection.apiKey
-  };
-}
-
-/**
- * Vault Bulk Update Manager
- */
-async function manageVault(currentConfig) {
-  clear();
-  console.log(chalk.cyan.bold(figlet.textSync('SECURE VAULT', { font: 'Small' })));
-  console.log(chalk.white('Store all 13 API keys safely on your machine. Encrypted locally.\n'));
-
-  const vault = currentConfig.vault || {};
-  const providers = Object.values(PROVIDERS);
-  
-  const results = {};
-  for (const p of providers) {
-    if (p === PROVIDERS.OLLAMA || p === PROVIDERS.GHOSTBOT) continue;
-    const { key } = await inquirer.prompt([{
-      type: 'password',
-      name: 'key',
-      message: `Enter API Key for ${chalk.cyan(p)} (Press Enter to skip/keep current):`,
-      mask: '*'
-    }]);
-    
-    if (key.trim()) {
-      results[p] = encrypt(key.trim());
-    } else if (vault[p]) {
-      results[p] = vault[p];
-    }
-  }
-
-  currentConfig.vault = results;
-  await saveConfig(currentConfig);
-  console.log(chalk.green('\n✅ Secure Vault updated. All 13 providers are now ready.\n'));
-  return currentConfig;
-}
-
-/**
- * Security Check: Trust Workspace
- */
-async function checkWorkspaceSecurity() {
-  clear();
-  const { trust } = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'trust',
-      message: chalk.cyan('👋 Welcome! Just a quick check—do you allow Ceylon X to create and edit files in this folder?'),
-      default: true
-    }
-  ]);
-
-  if (!trust) {
-    console.log(chalk.white('\nUnderstood. Ceylon X will not operate without your permission. Have a great day!\n'));
-    process.exit(0);
-  }
-}
-
-/**
- * Tool Definitions
- */
+// --- TOOLS ---
 const TOOLS = [
-  {
-    type: 'function',
-    function: {
-      name: 'readFile',
-      description: 'Reads the content of a file from the local file system.',
-      parameters: {
-        type: 'object',
-        properties: {
-          filePath: { type: 'string', description: 'The relative or absolute path to the file.' }
-        },
-        required: ['filePath']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'writeFile',
-      description: 'Creates or updates a file on the local file system.',
-      parameters: {
-        type: 'object',
-        properties: {
-          filePath: { type: 'string', description: 'The path where the file should be saved.' },
-          content: { type: 'string', description: 'The text content to be written inside the file.' }
-        },
-        required: ['filePath', 'content']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'executeCommand',
-      description: 'Executes a command in the terminal/shell.',
-      parameters: {
-        type: 'object',
-        properties: {
-          command: { type: 'string', description: 'The terminal command to run (e.g., npm install).' }
-        },
-        required: ['command']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'searchInternet',
-      description: 'Search the web for real-time data, latest documentation, or news.',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'The search query to look up.' }
-        },
-        required: ['query']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'listDirectory',
-      description: 'Lists the contents (files/folders) of a directory.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'The directory path to list.' }
-        },
-        required: ['path']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'deleteFile',
-      description: 'Deletes a file from the local file system.',
-      parameters: {
-        type: 'object',
-        properties: {
-          filePath: { type: 'string', description: 'The path to the file to delete.' }
-        },
-        required: ['filePath']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'getProjectTree',
-      description: 'Returns a light, recursive directory tree (ignores big folders like node_modules, dist, etc.).',
-      parameters: {
-        type: 'object',
-        properties: {
-          maxDepth: { type: 'number', description: 'Maximum depth to scan (default 3).' }
-        }
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'searchFiles',
-      description: 'Searches for a string or regex across all text files in the project (ignores node_modules and .git).',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'The string or regular expression to search for.' }
-        },
-        required: ['query']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'readImage',
-      description: 'Reads an image file and converts it to base64 for vision analysis.',
-      parameters: {
-        type: 'object',
-        properties: {
-          filePath: { type: 'string', description: 'The path to the image file.' }
-        },
-        required: ['filePath']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'fetchWebsite',
-      description: 'Scrapes and extracts clean, readable text from a URL.',
-      parameters: {
-        type: 'object',
-        properties: {
-          url: { type: 'string', description: 'The web address to pull content from.' }
-        },
-        required: ['url']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'gitCommit',
-      description: 'Stages all changes and commits them with a specific message.',
-      parameters: {
-        type: 'object',
-        properties: {
-          message: { type: 'string', description: 'The commit message.' }
-        },
-        required: ['message']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'generatePPT',
-      description: 'Generates a professional PowerPoint presentation file.',
-      parameters: {
-        type: 'object',
-        properties: {
-          filePath: { type: 'string', description: 'Destination filename (e.g., deck.pptx).' },
-          title: { type: 'string', description: 'Main title of the slide deck.' },
-          slides: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                heading: { type: 'string' },
-                content: { type: 'string' }
-              }
-            }
-          }
-        },
-        required: ['filePath', 'title', 'slides']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'generateImage',
-      description: 'Generates a stunning AI image using Pollinations.ai.',
-      parameters: {
-        type: 'object',
-        properties: {
-          prompt: { type: 'string', description: 'Highly detailed, cinematic image prompt.' },
-          filename: { type: 'string', description: 'Desired output filename (e.g., artwork.png).' }
-        },
-        required: ['prompt', 'filename']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'generateExcel',
-      description: 'Generates a professionally styled Excel report of data.',
-      parameters: {
-        type: 'object',
-        properties: {
-          filename: { type: 'string', description: 'Destination filename (e.g., stats.xlsx).' },
-          sheetName: { type: 'string', description: 'Name of the worksheet.' },
-          data: {
-            type: 'array',
-            items: { type: 'object', description: 'Row data as objects.' }
-          }
-        },
-        required: ['filename', 'sheetName', 'data']
-      }
-    }
-  }
+    { name: 'readFile', description: 'Read content of a local file.', parameters: { type: 'object', properties: { filePath: { type: 'string' } }, required: ['filePath'] } },
+    { name: 'writeFile', description: 'Create or update a local file.', parameters: { type: 'object', properties: { filePath: { type: 'string' }, content: { type: 'string' } }, required: ['filePath', 'content'] } },
+    { name: 'runCommand', description: 'Execute a terminal/bash command.', parameters: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } },
+    { name: 'searchCodebase', description: 'Run grep/find across the directory to search for patterns.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
+    { name: 'fetchWebsite', description: 'Scrape URL content from the internet.', parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] } },
+    { name: 'takeScreenshot', description: 'Take a screenshot of the computer screen (dummy functional).', parameters: { type: 'object', properties: {} } },
+    { name: 'moveMouse', description: 'Move mouse to X, Y coordinates (dummy functional).', parameters: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' } }, required: ['x', 'y'] } },
+    { name: 'typeText', description: 'Type text into the active window (dummy functional).', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } }
 ];
 
+const OPENAI_TOOLS = TOOLS.map(t => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } }));
+const ANTHROPIC_TOOLS = TOOLS.map(t => ({ name: t.name, description: t.description, input_schema: t.parameters }));
+const GEMINI_TOOLS = { functionDeclarations: TOOLS.map(t => ({ name: t.name, description: t.description, parameters: t.parameters })) };
+
 const TOOL_HANDLERS = {
-  readFile: async (args) => {
-    try { return readFileSync(args.filePath, 'utf8'); }
-    catch (e) { return `Error: ${e.message}`; }
-  },
-  writeFile: async (args) => {
-    try {
-      writeFileSync(args.filePath, args.content, 'utf8');
-      return `File ${args.filePath} written successfully.`;
-    } catch (e) { return `Error: ${e.message}`; }
-  },
-  executeCommand: async (args) => {
-    // Audit for dangerous commands
-    const dangerousCommands = ['rm -rf', 'sudo', 'mv ', 'chmod', 'chown', 'wget', 'curl', 'shutdown', 'reboot'];
-    const hasDanger = dangerousCommands.some(cmd => args.command.toLowerCase().includes(cmd));
-    const multipleCommands = args.command.includes('&&') || args.command.includes(';') || args.command.includes('||');
-
-    console.log('\n' + chalk.yellow.bold('⚠️ COMMAND AUTHORIZATION' + (hasDanger ? ' (HIGH RISK)' : '') + ' REQUIRED'));
-    if (hasDanger) console.log(chalk.red.bold('! Warning: This command contains potentially destructive operations.'));
-    if (multipleCommands) console.log(chalk.red.bold('! Warning: This command string contains multiple piped or sequential commands.'));
-
-    const { confirmed } = await inquirer.prompt([{
-      type: 'confirm',
-      name: 'confirmed',
-      message: `Ceylon X wants to run: ${chalk.cyan(args.command)}\nAllow execution?`,
-      default: false
-    }]);
-
-    if (!confirmed) {
-      return 'User denied permission to run this command. Explain what to do next.';
-    }
-
-    try {
-      const output = execSync(args.command, { encoding: 'utf8', stdio: 'pipe' });
-      return output || 'Command executed successfully (no output).';
-    } catch (e) { return `Error: ${e.stderr || e.message}`; }
-  },
-  searchInternet: async (args) => {
-    try {
-      const response = await google.search(args.query);
-      const results = response.results.slice(0, 5).map(r => 
-        `Title: ${r.title}\nDesc: ${r.description}\nURL: ${r.url}`
-      ).join('\n\n');
-      return results || 'No results found.';
-    } catch (e) { return `Error: ${e.message}`; }
-  },
-  listDirectory: async (args) => {
-    try {
-      const items = readdirSync(args.path || './');
-      return items.join('\n') || 'Directory is empty.';
-    } catch (e) { return `Error: ${e.message}`; }
-  },
-  deleteFile: async (args) => {
-    console.log('\n' + chalk.red.bold('🧨 FILE DELETION WARNING'));
-    const { confirmed } = await inquirer.prompt([{
-      type: 'confirm',
-      name: 'confirmed',
-      message: `Ceylon X wants to delete: ${chalk.red(args.filePath)}\nAre you sure?`,
-      default: false
-    }]);
-
-    if (!confirmed) {
-      return 'User denied permission to delete this file.';
-    }
-
-    try {
-      unlinkSync(args.filePath);
-      return `File ${args.filePath} deleted successfully.`;
-    } catch (e) { return `Error: ${e.message}`; }
-  },
-  getProjectTree: async (args) => {
-    const ignoreDirs = ['node_modules', '.git', 'dist', 'build', '.next', 'bin', 'out', 'node_modules.zip'];
-    const maxDepth = args.maxDepth || 3;
-
-    const getTree = (dir, prefix = '', depth = 0) => {
-      if (depth >= maxDepth) return '';
-      let tree = '';
-      try {
-        const files = readdirSync(dir);
-        files.forEach((file, index) => {
-          if (ignoreDirs.includes(file)) return;
-          const filePath = path.join(dir, file);
-          const isLast = index === files.length - 1;
-          tree += `${prefix}${isLast ? '└── ' : '├── '}${file}\n`;
-          if (existsSync(filePath)) { // Check if filePath exists before trying to read it
-            try {
-              const stats = readdirSync(filePath, { withFileTypes: true }); // Use withFileTypes to check if it's a directory
-              if (stats.some(stat => stat.isDirectory())) { // If it contains directories, recurse
-                tree += getTree(filePath, prefix + (isLast ? '    ' : '│   '), depth + 1);
-              }
-            } catch (inner) {
-              // Ignore errors for files that are not directories or inaccessible
-            }
-          }
-        });
-      } catch (e) {
-        // Ignore errors for inaccessible directories
-      }
-      return tree;
-    };
-    return getTree(process.cwd()) || 'Project tree is empty or depth reached.';
-  },
-  searchFiles: async (args) => {
-    const results = [];
-    const searchRecursively = (dir) => {
-      const files = readdirSync(dir);
-      for (const file of files) {
-        if (file === 'node_modules' || file === '.git') continue;
-        const filePath = path.join(dir, file);
+    readFile: async ({ filePath }) => {
         try {
-          if (readdirSync(filePath).length > 0) {
-            searchRecursively(filePath);
-          } else {
-            const content = readFileSync(filePath, 'utf8');
-            if (content.includes(args.query)) {
-              results.push(filePath);
-            }
-          }
-        } catch (e) {
-          try {
-            const content = readFileSync(filePath, 'utf8');
-            if (content.includes(args.query)) {
-              results.push(filePath);
-            }
-          } catch (inner) {}
+            const absolutePath = path.resolve(process.cwd(), filePath);
+            return await readFile(absolutePath, 'utf8');
+        } catch (e) { return `Error reading file: ${e.message}`; }
+    },
+    writeFile: async ({ filePath, content }) => {
+        if (!autoMode) {
+            console.log(chalk.yellow(`\n🛡️   Ceylon X wants to write to file: ${filePath}`));
+            const ok = await confirm({ message: `Allow modification?`, default: true });
+            if (!ok) return 'Permission denied by user.';
         }
-      }
-    };
-    try {
-      searchRecursively(process.cwd());
-      return results.length > 0 ? `Found "${args.query}" in:\n${results.join('\n')}` : `No matches found for "${args.query}".`;
-    } catch (e) { return `Error: ${e.message}`; }
-  },
-  readImage: async (args) => {
-    try {
-      const buffer = await sharp(args.filePath).toBuffer();
-      return buffer.toString('base64');
-    } catch (e) { return `Error reading image: ${e.message}`; }
-  },
-  fetchWebsite: async (args) => {
-    try {
-      const { data } = await axios.get(args.url, { timeout: 5000 });
-      const $ = cheerio.load(data);
-      $('script, style, ads, iframe').remove();
-      return $('p, h1, h2, h3, h4').text().slice(0, 5000);
-    } catch (e) { return `Error scraping website: ${e.message}`; }
-  },
-  gitCommit: async (args) => {
-    console.log('\n' + chalk.blue.bold('🛠️ GIT COMMIT AUTHORIZATION REQUIRED'));
-    const { confirmed } = await inquirer.prompt([{
-      type: 'confirm',
-      name: 'confirmed',
-      message: `Ceylon X wants to commit with message: "${chalk.cyan(args.message)}"\nAllow commit?`,
-      default: true
-    }]);
-    if (!confirmed) return 'User denied permission to commit changes.';
-    try {
-      execSync('git add .', { stdio: 'inherit' });
-      execSync(`git commit -m "${args.message}"`, { stdio: 'inherit' });
-      return 'Changes staged and committed successfully via Git.';
-    } catch (e) { return `Error committing: ${e.message}`; }
-  },
-  generatePPT: async (args) => {
-    try {
-      const pres = new pptxgen();
-      pres.title = args.title;
-      args.slides.forEach(s => {
-        const slide = pres.addSlide();
-        slide.addText(s.heading, { x: 0.5, y: 0.5, fontSize: 32, bold: true, color: '363636' });
-        slide.addText(s.content, { x: 0.5, y: 1.5, fontSize: 18, color: '666666' });
-      });
-      await pres.writeFile({ fileName: args.filePath });
-      return `Professional PowerPoint generated and saved to ${args.filePath}`;
-    } catch (e) { return `Error generating PPT: ${e.message}`; }
-  },
-  generateImage: async (args) => {
-    const seed = Math.floor(Math.random() * 1000000);
-    const primaryUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?nologo=true&private=true&enhance=false&seed=${seed}&width=1024&height=1024`;
-    const backupUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?nologo=true`;
-    
-    try {
-      const response = await axios.get(primaryUrl, { responseType: 'arraybuffer', timeout: 15000 });
-      writeFileSync(args.filename, response.data);
-      return `AI Image successfully generated and saved to ${args.filename}`;
-    } catch (e) { 
-      try {
-        const backupResp = await axios.get(backupUrl, { responseType: 'arraybuffer', timeout: 15000 });
-        writeFileSync(args.filename, backupResp.data);
-        return `AI Image generated using fallback model and saved to ${args.filename}`;
-      } catch (inner) {
-        return `⚠️ Failed to generate image. Please try again.`; 
-      }
+        try {
+            const absolutePath = path.resolve(process.cwd(), filePath);
+            await writeFile(absolutePath, content, 'utf8');
+            return `Successfully written to ${filePath}`;
+        } catch (e) { return `Error writing file: ${e.message}`; }
+    },
+    runCommand: async ({ command }) => {
+        if (!autoMode) {
+            console.log(chalk.yellow(`\n🛡️   Ceylon X wants to run command: ${command}`));
+            const ok = await confirm({ message: `Allow execution?`, default: true });
+            if (!ok) return 'Permission denied by user.';
+        }
+        try {
+            const output = execSync(command, { encoding: 'utf8', stdio: 'pipe' }) || 'Command executed successfully (no output).';
+            return output;
+        } catch (e) { return `Error: ${e.stderr || e.message}`; }
+    },
+    searchCodebase: async ({ query }) => {
+        try {
+            // Using a simple recursive search if grep isn't available, but here we'll try exec grep
+            const isWin = process.platform === 'win32';
+            const cmd = isWin ? `findstr /s /i /c:"${query}" *` : `grep -rnE "${query}" . --exclude-dir=node_modules`;
+            const output = execSync(cmd, { encoding: 'utf8', stdio: 'pipe' }) || 'No matches found.';
+            return output;
+        } catch (e) { return `No matches or error: ${e.message}`; }
+    },
+    fetchWebsite: async ({ url }) => {
+        try {
+            const { data } = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const $ = cheerio.load(data);
+            $('script, style').remove();
+            return $('body').text().replace(/\s+/g, ' ').slice(0, 5000);
+        } catch (e) { return `Error fetching website: ${e.message}`; }
+    },
+    takeScreenshot: async () => {
+        try {
+            const filename = `screenshot_${Date.now()}.png`;
+            await screenshot({ filename });
+            return `Screenshot captured and saved to ${filename}`;
+        } catch (e) { return `Screenshot failed: ${e.message}`; }
+    },
+    moveMouse: async ({ x, y }) => {
+        try {
+            await mouse.setPosition(new Point(x, y));
+            return `Mouse moved to ${x}, ${y}`;
+        } catch (e) { return `Mouse movement failed: ${e.message}`; }
+    },
+    typeText: async ({ text }) => {
+        try {
+            await keyboard.type(text);
+            return `Typed: "${text}"`;
+        } catch (e) { return `Typing failed: ${e.message}`; }
     }
-  },
-  generateExcel: async (args) => {
-    try {
-      const sanitizedFilename = args.filename.replace(/[^a-z0-9]/gi, '_').toLowerCase() + (args.filename.endsWith('.xlsx') ? '' : '.xlsx');
-      const fullPath = path.join(process.cwd(), sanitizedFilename);
-      
-      const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet(args.sheetName || 'Data Report');
-      
-      let reportData = args.data;
-      
-      // Fallback Data if empty or failed
-      if (!reportData || reportData.length === 0) {
-        reportData = [
-          { ID: 1, Name: 'Rank 1', Value: 'Sample A', Note: 'Mock Data' },
-          { ID: 2, Name: 'Rank 2', Value: 'Sample B', Note: 'Mock Data' }
-        ];
-      }
-      
-      const headers = Object.keys(reportData[0]);
-      sheet.addRow(headers);
-      
-      const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      headerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF0070C0' }
-      };
-      
-      reportData.forEach(row => {
-        sheet.addRow(Object.values(row));
-      });
-      
-      sheet.columns.forEach(column => {
-        let maxLen = 0;
-        column.eachCell({ includeEmpty: true }, cell => {
-          const val = cell.value ? cell.value.toString() : '';
-          maxLen = Math.max(maxLen, val.length);
-        });
-        column.width = Math.min(Math.max(maxLen + 2, 12), 50);
-      });
-      
-      await workbook.xlsx.writeFile(fullPath);
-      return `Professional Excel report saved successfully to: ${sanitizedFilename}`;
-    } catch (e) { 
-      return `⚠️ Failed to generate Excel report. Please try again.`; 
-    }
-  }
 };
 
-const SYSTEM_PROMPT = `You are Ceylon X, a 2026 Adaptive Super-Intelligence Agent. You are a '2026 Elite Full-Stack & Cyber Security Engineer', a Crypto Trader, and a Business Strategist. 
-
-INTEGRITY & EXPLANATION:
-- Always explain your actions clearly (e.g., 'I am reading the latest Next.js 15 docs to ensure modern practices...').
-- If a tool fails, self-correct autonomously (try a different search query, fallback method, or refine parameters).
-
-ELITE ENGINEERING MODE (/code):
-- Prioritize: Modern UI/UX, Security Best Practices (OWASP), Performance Optimization, and Self-Correction.
-- Workflow: Analyze -> Research (searchInternet for new tech) -> Plan (getProjectTree) -> Write (writeFile) -> QA (readFile back to check for syntax/security).
-
-Use your tools (generateExcel, generateImage, generatePPT, fetchWebsite, searchInternet, readImage, getProjectTree, searchFiles, etc.) to execute complex real-world workflows autonomously.`;
-
-/**
- * Configure the CLI
- */
-async function configure() {
-  console.log(chalk.cyan.bold('\n--- Ceylon X Setup ---\n'));
-
-  const config = await loadConfig() || {};
-  const vault = config.vault || {};
-
-  const setup = await inquirer.prompt([
-    {
-      type: 'rawlist',
-      name: 'provider',
-      message: 'Select your AI Provider:',
-      choices: Object.values(PROVIDERS).filter(p => p !== PROVIDERS.GHOSTBOT),
-      loop: true,
-      pageSize: 12
-    },
-    {
-      type: 'password',
-      name: 'apiKey',
-      message: 'Enter your API Key (or press Enter to use Vault key):',
-      mask: '*',
-      when: (a) => a.provider !== PROVIDERS.OLLAMA,
+// --- CLIENT FACTORY ---
+function createAIClient(config) {
+    const meta = PROVIDER_METADATA[config.provider];
+    if (meta.type === 'openai') {
+        const url = config.provider === 'Ollama (Local/Remote)' ? config.baseUrl : meta.baseUrl;
+        return new OpenAI({ apiKey: config.apiKey || 'ollama', baseURL: url, dangerouslyAllowBrowser: true });
+    } else if (meta.type === 'anthropic') {
+        return new Anthropic({ apiKey: config.apiKey });
+    } else if (meta.type === 'gemini') {
+        const genAI = new GoogleGenerativeAI(config.apiKey);
+        return genAI.getGenerativeModel({ model: config.modelId, tools: [GEMINI_TOOLS] });
     }
-  ]);
-
-  let finalApiKey = setup.apiKey;
-  if (!finalApiKey && vault[setup.provider]) {
-    finalApiKey = decrypt(vault[setup.provider]);
-  } else if (finalApiKey) {
-    // Save to vault automatically on individual update
-    vault[setup.provider] = encrypt(finalApiKey);
-  }
-
-  const modelChoice = await inquirer.prompt([
-    {
-      type: 'rawlist',
-      name: 'selectedModel',
-      message: 'Select a Model (or choose Custom):',
-      choices: (a) => [...(MODEL_SUGGESTIONS[setup.provider] || []), '>> Type Custom Model <<'],
-      loop: true
-    },
-    {
-      type: 'input',
-      name: 'customModel',
-      message: 'Enter your custom Model ID:',
-      when: (a) => a.selectedModel === '>> Type Custom Model <<',
-      validate: (input) => input.trim().length > 0 || 'Model ID is required.',
-    }
-  ]);
-
-  const answers = {
-    provider: setup.provider,
-    apiKey: finalApiKey,
-    modelId: modelChoice.customModel || modelChoice.selectedModel,
-    vault: vault
-  };
-
-  await saveConfig(answers);
-  console.log(chalk.green('\nConfiguration saved successfully!\n'));
-  return answers;
 }
 
-/**
- * Clear the terminal and show the welcome screen
- */
-function showWelcomeScreen(config) {
-  clear();
-  const width = process.stdout.columns || 80;
-  
-  const center = (text) => {
-    const cleanText = stripAnsi(text);
-    const pad = Math.max(0, Math.floor((width - cleanText.length) / 2));
-    return ' '.repeat(pad) + text;
-  };
+// --- PERSISTENCE ---
+async function loadConfig() { return existsSync(CONFIG_PATH) ? JSON.parse(await readFile(CONFIG_PATH, 'utf8')) : null; }
+async function saveConfig(c) { await writeFile(CONFIG_PATH, JSON.stringify(c, null, 2)); }
 
-  const titleLines = figlet.textSync('CEYLON X', { font: 'Slant', horizontalLayout: 'full' }).split('\n');
-  titleLines.forEach(line => console.log(center(chalk.cyan(line))));
-  
-  console.log(center(chalk.white.italic('      2026 Latest Cli AI Agent\n')));
-
-  const providerLabel = chalk.bold('Active Provider: ') + chalk.cyan(config.provider);
-  const ethicalTip = chalk.gray('      [ Unlimited capabilities powered by AI. Please use in an ethical way. ]\n');
-  const modelLabel = chalk.bold('Active Model: ')    + chalk.white(config.modelId);
-  const tips = [
-    '• Type ' + chalk.cyan('/exit') + ' to quit',
-    '• Type ' + chalk.cyan('/config') + ' to change AI engine',
-    '• Type ' + chalk.cyan('/vault') + ' if you want update all api key safely',
-    '• Type ' + chalk.cyan('/help') + ' for the full command menu',
-    '• Just type any task to begin'
-  ].join('\n');
-
-  console.log(
-    boxen(`${providerLabel}\n${ethicalTip}\n${modelLabel}\n\n${tips}`, {
-      padding: 1,
-      margin: 1,
-      borderStyle: 'round',
-      borderColor: 'cyan',
-      title: 'Autonomous Engineering Core',
-      titleAlignment: 'center',
-    })
-  );
+// --- UI COMPONENTS ---
+function renderHeader() {
+    clear();
+    const grad = gradient(['#FF00CC', '#3333FF', '#00CCFF']);
+    console.log(grad(figlet.textSync('CEYLON X', { font: 'Slant' })));
+    console.log(chalk.white.italic('        The 2026 Autonomous Super-Intelligence Agent\n'));
 }
 
-/**
- * Main Chat Logic
- */
-async function startChat(config) {
-  if (!config || !config.provider || !config.modelId) {
-    config = await configure();
-  }
-
-  showWelcomeScreen(config);
-  console.log(chalk.gray('--- Start Safe & Secure chat ---\n'));
-  
-  let { providerInstance, activeModelId } = initializeProvider(config);
-
-  const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
-
-  while (true) {
-    const { userInput } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'userInput',
-        message: chalk.white.bold('You:'),
-        validate: (input) => input.trim().length > 0 || 'Please enter a message.',
-      },
-    ]);
-
-    if (userInput.toLowerCase() === '/exit' || userInput.toLowerCase() === '/quit' || userInput.toLowerCase() === 'exit') {
-      console.log(chalk.yellow('\nGoodbye from Ceylon X!\n'));
-      break;
-    }
-
-    if (userInput.toLowerCase() === '/config') {
-      config = await configure();
-      return startChat(config);
-    }
-
-    if (userInput.toLowerCase() === '/vault') {
-      config = await manageVault(config);
-      return startChat(config);
-    }
-
-    const specialCommands = ['/excel', '/ppt', '/code', '/tradesignal'];
-    const commandUsed = specialCommands.find(c => userInput.toLowerCase().startsWith(c));
-    
-    let isTemporarySwitch = false;
-    const originalProviderInstance = providerInstance;
-    const originalActiveModelId = activeModelId;
-
-    if (commandUsed) {
-      const tempConfig = await checkAndGetTempModel(commandUsed, config);
-      if (tempConfig) {
-        const init = initializeProvider(tempConfig);
-        providerInstance = init.providerInstance;
-        activeModelId = init.activeModelId;
-        isTemporarySwitch = true;
-      }
-    }
-
-    let currentInput = userInput;
-
-    // Handle /code interceptor (Elite Engineering Mode)
-    if (userInput.toLowerCase().startsWith('/code ')) {
-      const task = userInput.slice(6).trim();
-      currentInput = `ELITE ENGINEERING MODE: ${task}
-      
-ACT AS AN ELITE 2026 ENGINEER:
-1. ANALYSIS: Deconstruct the task into logical components.
-2. SEARCH: If using new frameworks/libraries, searchInternet for latest docs.
-3. PLANNING: Use getProjectTree to map the workspace architecturally.
-4. CODING: Write robust, secure, and clean code using writeFile.
-5. QA & SELF-HEALING: Use readFile immediately after writing to check for errors/vulnerabilities. Fix them autonomously.
-
-GO: Build a professional, production-ready solution.`;
-    }
-
-    // Handle /update interceptor
-    if (userInput.toLowerCase() === '/update') {
-      const updateSpinner = ora(chalk.gray('Updating Ceylon X...')).start();
-      try {
-        execSync('npm install -g ceylonx', { stdio: 'inherit' });
-        updateSpinner.succeed(chalk.green('Ceylon X updated successfully!'));
-      } catch (e) {
-        updateSpinner.fail(chalk.red('Update failed: ' + e.message));
-      }
-      process.exit(0);
-    }
-    
-    // Handle /help interceptor
-    if (userInput.toLowerCase() === '/help') {
-      const helpContent = [
-        chalk.cyan.bold('--- BASIC SYSTEM COMMANDS ---'),
-        '• ' + chalk.cyan('/config')    + ' - Change AI provider or model',
-        '• ' + chalk.cyan('/vault')     + ' - If you want update all api key safely',
-        '• ' + chalk.cyan('/update')    + ' - Fast-update to latest version',
-        '• ' + chalk.cyan('/freeimage <prompt>') + ' - Unlimited Free AI Image Model',
-        '• ' + chalk.cyan('/ghostimage')      + ' - Premium Multi-Model Image Engine',
-        '• ' + chalk.cyan('/help')      + ' - Show this detailed menu',
-        '• ' + chalk.cyan('/exit')      + ' - Close the agent session',
+function showWelcome(config) {
+    renderHeader();
+    const modeStr = autoMode ? chalk.red.bold('AUTO MISSION MODE') : chalk.green.bold('INTERACTIVE MODE');
+    const status = [
+        chalk.cyan('Provider: ') + chalk.white(config.provider),
+        chalk.cyan('Model:    ') + chalk.white(config.modelId),
+        chalk.cyan('Mode:     ') + modeStr,
         '',
-        chalk.yellow.bold('--- ADVANCED AI ENGINEERING MODE ---'),
-        '• ' + chalk.cyan('/code <task>') + chalk.gray(' (Best Free: Groq Llama 3.3 70B)'),
-        '• ' + chalk.cyan('/excel <topic>') + chalk.gray(' (Best Free: Gemini 2.0 Flash)'),
-        '• ' + chalk.cyan('/ppt <topic>') + chalk.gray(' (Best Free: Gemini 2.0 Flash)'),
-        '• ' + chalk.cyan('/tradesignal <pair>') + chalk.gray(' (Best Free: Groq Llama 3.3 70B)'),
-        '• ' + chalk.cyan('/audio <text>') + ' - Generate high-quality voice MP3',
-        '• ' + chalk.cyan('/image <prompt>') + ' - AI-native generation (uses active model)',
-        '',
-        chalk.gray('  Just type anything else to start building with Ceylon X.')
-      ].join('\n');
+        chalk.gray('Commands:'),
+        chalk.white(' /config ') + chalk.dim('Update settings'),
+        chalk.white(' /auto   ') + chalk.dim('Toggle Auto Mode'),
+        chalk.white(' /dispatch ') + chalk.dim('Start Remote Hub'),
+        chalk.white(' & <task> ') + chalk.dim('Background execution'),
+        chalk.white(' /exit   ') + chalk.dim('Shutdown Agent')
+    ].join('\n');
+    console.log(boxen(status, { padding: 1, borderStyle: 'round', borderColor: 'magenta' }));
+}
 
-      console.log(boxen(helpContent, { padding: 1, borderStyle: 'round', borderColor: 'yellow' }));
-      continue;
-    }
-    
-    if (userInput.toLowerCase().startsWith('/freeimage')) {
-      let promptInput = userInput.slice(11).trim();
-      if (!promptInput) {
-        const res = await inquirer.prompt([{ type: 'input', name: 'p', message: `Enter your prompt for image generation:` }]);
-        promptInput = res.p;
-      }
-      if (!promptInput) continue;
+// --- CORE AGENT ENGINE ---
+async function runAgent(userInput, config, isBackground = false) {
+    const ai = createAIClient(config);
+    const meta = PROVIDER_METADATA[config.provider];
+    const systemPrompt = `You are Ceylon X, an Autonomous AI Developer and System Engineer.
+Current Directory: ${process.cwd()}
+You have full access to the local machine and internet. 
+Use tools proactively to solve tasks. If the user says 'hi', just respond politely but acknowledge you are ready to use your tools.
+Set tool_choice to 'auto' for best performance.`;
 
-      // Automatically use the best overall model (Ghostbot: img4) with hidden developer key
-      await handleGhostImage(promptInput, 'img4', DEVELOPER_GHOSTBOT_KEY);
-      continue;
-    }
+    const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: userInput }];
+    let iterating = true;
 
-    if (userInput.toLowerCase().startsWith('/ghostimage')) {
-      const { prompt } = await inquirer.prompt([{ type: 'input', name: 'prompt', message: 'Enter image prompt:' }]);
-      const { model } = await inquirer.prompt([{
-        type: 'list',
-        name: 'model',
-        message: 'Select Ghostbot Model:',
-        choices: PROVIDER_MODEL_MAP[PROVIDERS.GHOSTBOT]
-      }]);
-
-      await handleGhostImage(prompt, model, DEVELOPER_GHOSTBOT_KEY);
-      continue;
-    }
-
-    // Handle /audio interceptor (Bypass AI)
-    if (userInput.toLowerCase().startsWith('/audio ')) {
-      const audioText = userInput.slice(7).trim();
-      const audioSpinner = ora(chalk.gray('Generating Voice MP3...')).start();
-      try {
-        const filename = `audio_${Date.now()}.mp3`;
-        const base64 = await googleTTS.getAudioBase64(audioText, {
-          lang: 'en',
-          slow: false,
-          host: 'https://translate.google.com',
-        });
-        const buffer = Buffer.from(base64, 'base64');
-        writeFileSync(filename, buffer);
-        audioSpinner.succeed(chalk.green(`Voice MP3 successfully saved to ${filename}`));
-      } catch (e) {
-        audioSpinner.fail(chalk.red(`Error: ${e.message}`));
-      }
-      continue;
-    }
-
-    // Handle /tradesignal interceptor
-    if (userInput.toLowerCase().startsWith('/tradesignal ')) {
-      const pair = userInput.slice(13).trim();
-      currentInput = `The user requested a trading signal for ${pair}. 
-      Be extremely fast. Make ONE targeted searchInternet for live prices/sentiment. 
-      Output strictly: [ BUY 🟢 / SELL 🔴 ], Entry, TP, SL, and brief analysis. 
-      End with: ⚠️ Disclaimer: AI-generated from web data. NOT financial advice.`;
-    }
-
-    // Agency Commands interceptors
-    if (userInput.toLowerCase().startsWith('/ppt ')) {
-      const topic = userInput.slice(5).trim();
-      currentInput = `The user wants a presentation about ${topic}. 
-      Autonomously use searchInternet to gather facts, then use the generatePPT tool to create a highly professional 5-7 slide PowerPoint presentation.`;
-    }
-    
-    if (userInput.toLowerCase().startsWith('/excel ')) {
-      const topic = userInput.slice(7).trim();
-      currentInput = `The user wants an Excel data report on: ${topic}. 
-      First, use searchInternet to gather the latest factual data (e.g., statistics, rankings, lists). 
-      Structure the data into a clean JSON array of objects. Then use the generateExcel tool to create a beautifully styled .xlsx file. Tell the user the report is ready.`;
-    }
-    if (userInput.toLowerCase().startsWith('/seo ')) {
-      const url = userInput.slice(5).trim();
-      currentInput = `Use fetchWebsite to scrape ${url}. Act as an Elite SEO Expert. 
-      Output a detailed SEO audit, suggest 10 high-traffic keywords, and generate a strategy to get bulk high-quality backlinks. Format beautifully with chalk symbols.`;
-    }
-    if (userInput.toLowerCase().startsWith('/dropship ')) {
-      const niche = userInput.slice(10).trim();
-      currentInput = `Act as a Dropshipping & E-commerce Expert. Use searchInternet to find the top 3 trending winning products for ${niche} right now. 
-      Output a complete report: Product Name, Target Audience, Facebook Ad strategy, and Supplier ideas.`;
-    }
-    
-    if (userInput.toLowerCase().startsWith('/image ')) {
-      const userPrompt = userInput.slice(7).trim();
-      currentInput = `The user wants an image based on: ${userPrompt}. 
-      Use your configured AI model's native image generation capabilities if you have them (like DALL-E or Imagen), 
-      OR use the generateImage tool to create it via Pollinations.ai. Expanding the idea into a detailed, cinematic prompt first.`;
-    }
-    
-    // Handle /read legacy
-    if (userInput.startsWith('/read ')) {
-      const filePath = userInput.slice(6).trim();
-      const absolutePath = path.resolve(process.cwd(), filePath);
-      if (existsSync(absolutePath)) {
+    while (iterating) {
+        const spinner = !isBackground ? ora(chalk.blue('Ceylon X is thinking...')).start() : null;
         try {
-          const content = readFileSync(absolutePath, 'utf8');
-          currentInput = `[Local Read] Content of ${filePath}:\n\n${content}\n\nAnalyze this.`;
-        } catch (e) {
-          console.log(chalk.red(`\nError: ${e.message}`));
-          continue;
-        }
-      }
-    }
+            if (meta.type === 'openai') {
+                const response = await ai.chat.completions.create({
+                    model: config.modelId,
+                    messages: messages.filter(m => m.role !== 'system' || config.provider === 'OpenAI'), // Some providers don't like system role in messages array
+                    ...(config.provider === 'OpenAI' ? { model: config.modelId } : {}),
+                    tools: OPENAI_TOOLS,
+                    tool_choice: 'auto'
+                });
 
-    messages.push({ role: 'user', content: currentInput });
+                const assistantMessage = response.choices[0].message;
+                messages.push(assistantMessage);
+                if (spinner) spinner.stop();
 
-    let isThinking = true;
+                if (assistantMessage.tool_calls) {
+                    for (const toolCall of assistantMessage.tool_calls) {
+                        const name = toolCall.function.name;
+                        const args = JSON.parse(toolCall.function.arguments);
+                        if (!isBackground) console.log(chalk.cyan(`[Executing] ${name}...`));
+                        const result = await TOOL_HANDLERS[name](args);
+                        messages.push({ role: 'tool', tool_call_id: toolCall.id, name, content: String(result) });
+                    }
+                } else {
+                    if (!isBackground) {
+                        console.log(chalk.bold.magenta('\nCeylon X: ') + chalk.white(assistantMessage.content || '(Done)'));
+                    }
+                    iterating = false;
+                }
+            } else if (meta.type === 'anthropic') {
+                const response = await ai.messages.create({
+                    model: config.modelId,
+                    max_tokens: 4096,
+                    system: systemPrompt,
+                    messages: messages.filter(m => m.role !== 'system').map(m => {
+                        if (m.role === 'tool') return { role: 'user', content: [{ type: 'tool_result', tool_use_id: m.tool_call_id, content: m.content }] };
+                        if (m.tool_calls) return { role: 'assistant', content: m.tool_calls.map(tc => ({ type: 'tool_use', id: tc.id, name: tc.function.name, input: JSON.parse(tc.function.arguments) })) };
+                        return m;
+                    }),
+                    tools: ANTHROPIC_TOOLS
+                });
 
-    while (isThinking) {
-      let ms = 0;
-      const taskLabel = commandUsed ? commandUsed.slice(1).toUpperCase() : 'TASK';
-      const spinnerPrefix = isTemporarySwitch 
-        ? `Generating ${taskLabel} using ${activeModelId} (Temporary)...` 
-        : 'Ceylon X is thinking...';
+                if (spinner) spinner.stop();
+                
+                if (response.stop_reason === 'tool_use') {
+                    const toolUses = response.content.filter(c => c.type === 'tool_use');
+                    messages.push({ role: 'assistant', tool_calls: toolUses.map(tu => ({ id: tu.id, function: { name: tu.name, arguments: JSON.stringify(tu.input) } })) });
+                    for (const tu of toolUses) {
+                        if (!isBackground) console.log(chalk.cyan(`[Executing] ${tu.name}...`));
+                        const result = await TOOL_HANDLERS[tu.name](tu.input);
+                        messages.push({ role: 'tool', tool_call_id: tu.id, name: tu.name, content: String(result) });
+                    }
+                } else {
+                    const text = response.content[0].text;
+                    if (!isBackground) console.log(chalk.bold.magenta('\nCeylon X: ') + chalk.white(text));
+                    iterating = false;
+                }
+            } else if (meta.type === 'gemini') {
+                const chat = ai.startChat({ history: [] }); // Simple loop for brevity
+                const result = await ai.generateContent({
+                    contents: messages.filter(m => m.role !== 'system').map(m => {
+                        if (m.role === 'tool') return { role: 'function', parts: [{ functionResponse: { name: m.name, response: { content: m.content } } }] };
+                        if (m.tool_calls) return { role: 'model', parts: m.tool_calls.map(tc => ({ functionCall: { name: tc.function.name, args: JSON.parse(tc.function.arguments) } })) };
+                        return { role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content || ' ' }] };
+                    }),
+                    systemInstruction: systemPrompt
+                });
 
-      const mainSpinner = ora(chalk.gray(spinnerPrefix)).start();
-      const timer = setInterval(() => {
-        ms += 100;
-        mainSpinner.text = chalk.gray(`${spinnerPrefix} [${(ms / 1000).toFixed(1)}s]`);
-      }, 100);
-      
-      try {
-        if (config.provider === PROVIDERS.GEMINI) {
-          // Gemini Basic (Tool calling for Gemini 1.5/2.0 requires different structure, keeping basic for now)
-          const result = await providerInstance.generateContentStream(currentInput);
-          clearInterval(timer);
-          mainSpinner.stop();
-          process.stdout.write(chalk.green.bold('\nCeylon X: '));
-          let fullText = "";
-          for await (const chunk of result.stream) {
-            const text = chunk.text();
-            fullText += text;
-            process.stdout.write(chalk.whiteBright(text));
-          }
-          process.stdout.write('\n\n');
-          messages.push({ role: 'assistant', content: fullText });
-          isThinking = false;
-        } else if (config.provider === PROVIDERS.ANTHROPIC) {
-          // Anthropic Basic
-          clearInterval(timer);
-          mainSpinner.stop();
-          process.stdout.write(chalk.green.bold('\nCeylon X: '));
-          const response = await providerInstance.messages.create({
-            model: activeModelId,
-            max_tokens: 2048,
-            messages: messages.filter(m => m.role !== 'system'),
-            system: SYSTEM_PROMPT
-          });
-          const text = response.content[0].text;
-          console.log(chalk.whiteBright(text));
-          messages.push({ role: 'assistant', content: text });
-          isThinking = false;
-        } else {
-          // OpenAI / OpenRouter / Groq with TOOLS
-          const response = await providerInstance.chat.completions.create({
-            model: activeModelId,
-            messages: messages,
-            tools: TOOLS,
-            tool_choice: 'auto'
-          });
-
-          clearInterval(timer);
-          mainSpinner.stop();
-          const message = response.choices[0].message;
-          messages.push(message);
-
-          if (message.tool_calls) {
-            for (const toolCall of message.tool_calls) {
-              const name = toolCall.function.name;
-              const args = JSON.parse(toolCall.function.arguments);
-              
-              let spinnerMsg = `Ceylon X is using ${name}...`;
-              if (name === 'searchInternet') spinnerMsg = `Searching the web for: ${chalk.bold(args.query)}...`;
-              else if (name === 'readFile') spinnerMsg = `Reading file: ${chalk.bold(args.filePath)}...`;
-              else if (name === 'writeFile') spinnerMsg = `Writing file: ${chalk.bold(args.filePath)}...`;
-              else if (name === 'executeCommand') spinnerMsg = `Executing: ${chalk.bold(args.command)}...`;
-              else if (name === 'getProjectTree') spinnerMsg = `Mapping project architecture...`;
-              else if (name === 'searchFiles') spinnerMsg = `Searching codebase for: ${chalk.bold(args.query)}...`;
-              else if (name === 'readImage') spinnerMsg = `Reading image: ${chalk.bold(args.filePath)}...`;
-              else if (name === 'fetchWebsite') spinnerMsg = `Scraping website: ${chalk.bold(args.url)}...`;
-              else if (name === 'gitCommit') spinnerMsg = `Committing to Git...`;
-              else if (name === 'generatePPT') spinnerMsg = `Generating PowerPoint presentation...`;
-              else if (name === 'generateImage') spinnerMsg = `Generating high-quality AI image...`;
-              else if (name === 'generateExcel') spinnerMsg = `Generating professional Excel report...`;
-
-              let toolMs = 0;
-              const toolSpinner = ora(chalk.gray(`${spinnerMsg} [${(toolMs / 1000).toFixed(1)}s]`)).start();
-              const toolTimer = setInterval(() => {
-                toolMs += 100;
-                toolSpinner.text = chalk.gray(`${spinnerMsg} [${(toolMs / 1000).toFixed(1)}s]`);
-              }, 100);
-
-              const result = await TOOL_HANDLERS[name](args);
-              clearInterval(toolTimer);
-              if (result.startsWith('User denied')) {
-                toolSpinner.fail(chalk.red(`Permission Denied`));
-              } else {
-                toolSpinner.succeed(chalk.green(`Executed ${name}`));
-              }
-              
-              messages.push({
-                tool_call_id: toolCall.id,
-                role: 'tool',
-                name: name,
-                content: result.toString()
-              });
+                if (spinner) spinner.stop();
+                const calls = result.response.functionCalls();
+                if (calls) {
+                    const mappedCalls = calls.map((c, i) => ({ id: `gemini_${Date.now()}_${i}`, function: { name: c.name, arguments: JSON.stringify(c.args) } }));
+                    messages.push({ role: 'assistant', tool_calls: mappedCalls });
+                    for (const tc of mappedCalls) {
+                        if (!isBackground) console.log(chalk.cyan(`[Executing] ${tc.function.name}...`));
+                        const res = await TOOL_HANDLERS[tc.function.name](JSON.parse(tc.function.arguments));
+                        messages.push({ role: 'tool', tool_call_id: tc.id, name: tc.function.name, content: String(res) });
+                    }
+                } else {
+                    const text = result.response.text();
+                    if (!isBackground) console.log(chalk.bold.magenta('\nCeylon X: ') + chalk.white(text));
+                    iterating = false;
+                }
             }
-            // Continue loop to send tool results back
-          } else {
-            process.stdout.write(chalk.green.bold('\nCeylon X: '));
-            console.log(chalk.whiteBright(message.content + '\n'));
-            isThinking = false;
-          }
+        } catch (e) {
+            if (spinner) spinner.fail(chalk.red(`Error: ${e.message}`));
+            iterating = false;
         }
-      } catch (error) {
-        handleApiError(error, mainSpinner);
-        isThinking = false;
-      }
     }
-
-    if (isTemporarySwitch) {
-      providerInstance = originalProviderInstance;
-      activeModelId = originalActiveModelId;
-      console.log(chalk.gray(`\n✅ Task complete. Reverted to your main model: ${activeModelId}.\n`));
-      isTemporarySwitch = false;
-    }
-  }
 }
 
-const program = new Command();
+// --- SPECIAL COMMANDS ---
+async function configure() {
+    renderHeader();
+    console.log(gradient(['#FF00CC', '#3333FF'])(figlet.textSync('SETUP')));
+    const configData = await loadConfig();
+    const vault = configData?.vault || {};
 
-program
-  .name('ceylonx')
-  .description('Ceylon X - 2026 Latest CLI AI Agent')
-  .version('1.0.1');
+    const provider = await select({
+        message: 'Select AI Provider (Universal Engine):',
+        choices: PROVIDERS.map(p => ({ name: p, value: p })),
+        pageSize: 15
+    });
 
-program
-  .command('chat')
-  .description('Start a chat session')
-  .action(async () => {
-    const config = await loadConfig();
-    await startChat(config);
-  });
+    const meta = PROVIDER_METADATA[provider];
+    let customBase = meta.baseUrl;
+    let apiKeyPrompt = `Enter ${provider} API Key:`;
 
-program
-  .command('config')
-  .description('Configure your AI provider')
-  .action(async () => {
-    await configure();
-  });
+    if (provider === 'Ollama (Local/Remote)') {
+        customBase = await input({ message: 'Enter Ollama Base URL:', default: 'http://localhost:11434/v1' });
+        apiKeyPrompt = 'Enter API Key (Optional for Ollama):';
+    }
 
-// Handle default run
-if (!process.argv.slice(2).length) {
-  checkWorkspaceSecurity().then(() => {
-    loadConfig().then(config => startChat(config));
-  });
-} else {
-  program.parse(process.argv);
+    const apiKey = await password({ message: apiKeyPrompt, mask: '*' });
+    const modelId = await input({ message: 'Enter Model ID (e.g., claude-3-5-sonnet, gpt-4o):', default: provider === 'Anthropic' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o' });
+
+    if (apiKey) vault[provider] = encrypt(apiKey);
+    const finalKey = apiKey || (vault[provider] ? decrypt(vault[provider]) : '');
+
+    const newConfig = { provider, modelId, apiKey: finalKey, baseUrl: customBase, vault };
+    await saveConfig(newConfig);
+    return newConfig;
 }
+
+function startDispatch(config) {
+    const app = express();
+    app.use(bodyParser.json());
+    app.post('/dispatch-task', async (req, res) => {
+        const { task } = req.body;
+        console.log(chalk.blue(`\n[Dispatch] Remote Task Received: ${task}`));
+        res.json({ status: 'Processing' });
+        await runAgent(task, config, true);
+        console.log(chalk.blue(`[Dispatch] Task Complete.`));
+    });
+    app.listen(3000, () => console.log(chalk.green('\n📡 Remote Dispatch Hub active on port 3000.')));
+}
+
+// --- MAIN LOOP ---
+(async () => {
+    let config = await loadConfig();
+    if (!config) config = await configure();
+    showWelcome(config);
+
+    while (true) {
+        const userInput = await input({
+            message: gradient(['#FF00CC', '#3333FF'])('❯'),
+            prefix: ''
+        });
+
+        if (!userInput) continue;
+        if (userInput === '/exit') { console.log(chalk.yellow('Ceylon X shutting down...')); break; }
+        
+        if (userInput === '/config') {
+            config = await configure();
+            showWelcome(config);
+            continue;
+        }
+
+        if (userInput === '/auto') {
+            autoMode = !autoMode;
+            console.log(boxen(autoMode ? chalk.red.bold('WARNING: AUTO MODE ENABLED. Ceylon X will execute all commands without asking.') : chalk.green.bold('Interactive Mode Enabled.'), { padding: 1, borderColor: autoMode ? 'red' : 'green' }));
+            continue;
+        }
+
+        if (userInput === '/dispatch') {
+            startDispatch(config);
+            continue;
+        }
+
+        if (userInput.startsWith('&')) {
+            const task = userInput.slice(1).trim();
+            console.log(chalk.dim(`[Background] Spawning agent for: ${task}`));
+            runAgent(task, config, true).then(() => {
+                console.log(chalk.magenta(`\n[Background Agent] Task Finished: ${task}`));
+            });
+            continue;
+        }
+
+        await runAgent(userInput, config);
+    }
+})();
