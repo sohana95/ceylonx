@@ -7,6 +7,14 @@
   "bin": {
     "ceylonx": "dist/index.js"
   },
+  "files": [
+    "index.js",
+    "src/",
+    "dist/",
+    ".env.example",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "javascript-obfuscator index.js --output dist/index.js --string-array true --string-array-rotate true --string-array-shuffle true --string-array-encoding base64,rc4"
@@ -47,7 +55,8 @@
     "clear": "^0.1.0",
     "body-parser": "^1.20.2",
     "screenshot-desktop": "^1.15.0",
-    "strip-ansi": "^7.1.0"
+    "strip-ansi": "^7.1.0",
+    "glob": "^10.3.10"
   },
   "devDependencies": {
     "javascript-obfuscator": "^5.4.1"

@@ -1,7 +1,48 @@
-node_modules/
+# --- SENSITIVE FILES ---
 .env
+.env.local
+.env.*
 config.json
-*.png
-*.mp3
-*.pptx
-*.xlsx
+
+# --- EXTERNAL REFERENCE (STRICTLY BLOCKED) ---
+claude-code-reference/
+claude-code-main/
+
+# --- DEPENDENCIES ---
+node_modules/
+node_modules/*
+
+# --- OS & IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# --- LOGS & CACHE ---
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.cache
+.parcel-cache
+.eslintcache
+
+# --- BUILD OUTPUT ---
+dist/
+build/
+# Note: Keep dist/ if you only want to push source to GitHub, 
+# but usually dist is ignored in git and included in npm.
+# Since we are using an obfuscator, we might want dist/ in Git if that's the production source,
+# but usually we ignore it and build on CI.
+# However, for simple projects, keeping dist/ is fine.
+
+# --- TESTING ---
+coverage/
+.nyc_output/

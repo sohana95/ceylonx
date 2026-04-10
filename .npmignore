@@ -1,6 +1,39 @@
+# --- SENSITIVE ---
 .env
+.env.*
 config.json
-node_modules
-*.pptx
-*.txt
-*.html
+
+# --- SOURCE ASSETS (REFERENCE) ---
+claude-code-reference/
+claude-code-main/
+
+# --- DEVELOPMENT TOOLS ---
+.github/
+.vscode/
+.git/
+.gitignore
+.npmignore
+.eslintignore
+.prettierignore
+package-lock.json
+yarn.lock
+*.md
+!README.md
+!LICENSE
+
+# --- TEST ---
+tests/
+__tests__/
+*.test.js
+*.spec.js
+coverage/
+
+# --- LOGS ---
+logs/
+*.log
+npm-debug.log*
+
+# --- MISC ---
+.DS_Store
+Thumbs.db
+node_modules/

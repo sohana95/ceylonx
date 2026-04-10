@@ -1,88 +1,89 @@
-# CEYLON X 🚀
-### 2026 Autonomous Super-Intelligence AI Agent
+# 🌌 Ceylon X: The Autonomous Agentic CLI
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![NPM Version](https://img.shields.io/npm/v/ceylonx.svg)](https://www.npmjs.com/package/ceylonx)
-
-**Ceylon X** is a next-generation autonomous AI agent designed for the 2026 era. It transforms your terminal into a powerful, multi-provider reasoning hub with full system access, background execution, and computer-use capabilities.
+**Unleash advanced agentic autonomy on any LLM. Self-hosted, secure, and built for 2026-level developer productivity.**
 
 ---
 
-## 🌟 Super-Intelligence Features (v1.4.0)
+## 🚀 Introduction
 
-### 1. 🤖 Universal Multi-Provider Engine (19+ Providers)
-Seamlessly switch between the world's most powerful AI models:
-- **Anthropic (Claude 3.5 Sonnet)**, **Google Gemini**, **OpenAI (GPT-4o)**
-- **Groq**, **OpenRouter**, **Ollama (Local/Remote)**
-- **GitHub Models**, **SambaNova**, **Hyperbolic**, **Cerebras**
-- **GLHF**, **DeepSeek**, **Mistral**, **Cohere**
-- **Perplexity**, **Together AI**, **xAI (Grok)**, **Fireworks AI**, and **HuggingFace**
+**Ceylon X** is a high-performance, self-hosted agentic framework that brings "Claude-Code-level" autonomy to your local environment. Unlike standard chat-based assistants, Ceylon X operates within a sophisticated **Autonomous Think-Tool-Act Loop**, enabling it to plan, execute, and refactor code directly in your terminal. 
 
-### 2. 🛡️ Permission Control (Interactive vs. Auto Mode)
-- **Interactive Mode (Default):** Absolute safety. Ceylon X asks for your permission before executing any terminal command or modifying files.
-- **Auto Mode (`/auto`):** Full autonomy. The agent executes tasks end-to-end without interruptions. *Perfect for verified environments.*
-
-### 3. 🛠️ Full Autonomous Tool Suite
-Standardized function calling across all providers:
-- 📖 **readFile**: Intelligent file context ingestion.
-- ✍️ **writeFile**: Autonomous code generation and file updates.
-- 💻 **runCommand**: Direct terminal/bash execution.
-- 🔍 **searchCodebase**: Deep recursive search for patterns (grep/find).
-- 🌐 **fetchWebsite**: Real-time web scraping and content extraction.
-
-### 4. 🚀 2026 Agentic Features
-- 🏗️ **Background Tasks (`&` prefix)**: Spawn agents for long-running tasks (e.g., `& run system audit`) while you keep chatting.
-- 📡 **Remote Dispatch (`/dispatch`)**: Turns Ceylon X into a local API hub (Port 3000) allowed you to send tasks from external applications.
-- 🖥️ **Computer Use**: Vision-grounded automation including `takeScreenshot`, `moveMouse`, and `typeText`.
+Whether you are using the lightning speed of **Groq**, the reasoning of **Anthropic**, or the scale of **OpenAI**, Ceylon X orchestrates your favorite LLMs into a fully functional AI Software Engineer.
 
 ---
 
-## ⚡ Quick Start
+## 🧠 Lead Developer
 
-1. **Install Ceylon X**:
-   ```bash
-   npm install -g ceylonx
-   ```
-
-2. **Launch Agent**:
-   ```bash
-   ceylonx
-   ```
-
-3. **Configure Your Engine**:
-   Run the command below to choose your provider and model:
-   ```bash
-   /config
-   ```
-
-4. **Task Examples**:
-   - `build a react contact form component`
-   - `& audit my directory for security vulnerabilities`
-   - `/auto` followed by `fix the bugs in index.js`
+**Ceylon X** is designed and maintained by **Sohan D. Perera**, a pioneer in autonomous AI orchestration and system architecture. This project reflects a philosophy of "Agentic Sovereignty"—giving developers maximum autonomy and security without provider lock-in.
 
 ---
 
-## 🛠️ Available Commands
+## ✨ Key Features
 
-| Command | Description |
-| :--- | :--- |
-| `/config` | Switch AI Provider, Base URL, API Key, and Model. |
-| `/auto` | Toggle between **Interactive** (Safe) and **Auto** (Mission) modes. |
-| `/dispatch` | Start the local Express hub on Port 3000 for remote tasks. |
-| `& <task>` | Execute a task asynchronously in the background. |
-| `/exit` | Gracefully shutdown the agent session. |
+*   **⚡ Autonomous Agentic Loop**: Implements a native "Think-Tool-Act" cycle for multi-step task completion.
+*   **🌐 Multi-Provider Registry**: Seamless, zero-config support for **Groq, Anthropic, Gemini, OpenAI, Together AI, Mistral, Ollama**, and more.
+*   **🛡️ Triple-Layer Security**: Your API keys never leave your machine. Built with `aes-256-cbc` encryption and strict leak prevention.
+*   **🛠️ Native System Tooling**: Advanced capabilities including Bash execution (with Y/n confirmation), File I/O, Glob searching, and project-wide Grep.
+*   **🔄 Self-Updating Mechanism**: Keep your agent at the cutting edge with the built-in `/update` system.
 
 ---
 
-## 🔐 Security (Secure Vault)
-All your API keys are encrypted at the machine level using **AES-256-CBC** with a hardware-based salt. They never leave your local environment.
+## 🛠️ Installation & Setup
+
+### 1. Install Globally
+Bring Ceylon X to your terminal via NPM:
+
+```bash
+npm install -g ceylonx
+```
+
+### 2. Configure Your Agent
+Run the setup command to link your preferred LLM provider:
+
+```bash
+ceylonx /config
+```
+The streamlined configuration flow takes only seconds:
+1. **Select Provider** (e.g., Groq, Anthropic)
+2. **Enter API Key**
+3. **Paste Model ID**
+
+### 3. Start Building
+Just type `ceylonx` in any project folder to begin your first autonomous mission.
 
 ---
 
-## ❤️ Credits
-Engineered for the future by **Dev Sohan d Perera**.
+## 🎮 Usage Examples
+
+### 🏗️ Build a Project from Scratch
+> "Build a responsive React calculator app in a new folder, create the CSS, and run the dev server."
+
+### 🔍 Analyze & Refactor
+> "Analyze the current project structure, find all hardcoded secrets, and move them to a new .env file."
+
+### 🚀 Autonomous Debugging
+> "Run the tests, identify why the build is failing, fix the source code, and verify the fix."
 
 ---
 
-## 📜 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 🔒 Security Guarantee
+
+**Ceylon X is built with security-first principles.** 
+
+We understand that your codebase is your most valuable asset. Ceylon X follows strict exclusion patterns via automated `.gitignore` and `.npmignore` generation to ensure your API keys, local configurations, and sensitive reference data remain strictly on your local machine.
+
+---
+
+## 📄 License & Credits
+
+Ceylon X is an Open Source project released under the **MIT License**. 
+
+*   Designed by [Sohan D. Perera](https://github.com/sohana95).
+*   Inspired by the frontier of agentic AI research.
+
+---
+
+<p align="center">
+  <b>Star the project to join the agentic revolution!</b> <br>
+  Built with ❤️ by <a href="https://github.com/sohana95">sohana95</a>
+</p>
