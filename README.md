@@ -1,5 +1,10 @@
 # 🌌 Ceylon X: The Autonomous Agentic CLI
 
+[![NPM Version](https://img.shields.io/npm/v/@sohana95/ceylonx.svg)](https://www.npmjs.com/package/@sohana95/ceylonx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-magenta.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/sohana95/ceylonx)
+[![Agentic Revolution](https://img.shields.io/badge/Agent-Autonomous-orange.svg)](#)
+
 **Unleash advanced agentic autonomy on any LLM. Self-hosted, secure, and built for 2026-level developer productivity.**
 
 ---
@@ -34,7 +39,7 @@ Whether you are using the lightning speed of **Groq**, the reasoning of **Anthro
 Bring Ceylon X to your terminal via NPM:
 
 ```bash
-npm install -g ceylonx
+npm install -g @sohana95/ceylonx
 ```
 
 ### 2. Configure Your Agent
