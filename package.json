@@ -1,23 +1,21 @@
 {
-  "name": "@sohana95/ceylonx",
-  "version": "1.1.0",
+  "name": "ceylon-x-agent",
+  "version": "1.0.0",
   "description": "Ceylon X - 2026 Latest CLI AI Agent. Universal AI assistant with autonomous coding, trading signals, PPT generation, SEO audits, web scraping, vision AI, and multi-provider support.",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "index.js",
   "bin": {
-    "ceylonx": "dist/index.js"
+    "ceylonx": "index.js"
   },
   "files": [
     "index.js",
     "src/",
-    "dist/",
     ".env.example",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "javascript-obfuscator index.js --output dist/index.js --string-array true --string-array-rotate true --string-array-shuffle true --string-array-encoding base64,rc4"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "ai",
@@ -57,8 +55,5 @@
     "screenshot-desktop": "^1.15.0",
     "strip-ansi": "^7.1.0",
     "glob": "^10.3.10"
-  },
-  "devDependencies": {
-    "javascript-obfuscator": "^5.4.1"
   }
 }
