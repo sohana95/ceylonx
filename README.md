@@ -6,7 +6,7 @@
 
 ## 🚀 Introduction
 
-**Ceylon X** is a high-performance, self-hosted agentic framework that brings "Claude-Code-level" autonomy to your local environment. Unlike standard chat-based assistants, Ceylon X operates within a sophisticated **Autonomous Think-Tool-Act Loop**, enabling it to plan, execute, and refactor code directly in your terminal. 
+**Ceylon X** is a high-performance, self-hosted agentic framework that brings advanced agentic autonomy to your local environment. Unlike standard chat-based assistants, Ceylon X operates within a sophisticated **Autonomous Think-Tool-Act Loop**, enabling it to plan, execute, and refactor code directly in your terminal. 
 
 Whether you are using the lightning speed of **Groq**, the reasoning of **Anthropic**, or the scale of **OpenAI**, Ceylon X orchestrates your favorite LLMs into a fully functional AI Software Engineer.
 

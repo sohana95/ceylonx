@@ -2,7 +2,7 @@
 
 /**
  * Ceylon X - 2026 Autonomous Super-Intelligence CLI Agent
- * Rebuilt with Claude Code Architecture
+ * Engineered with Ceylon X Agentic Architecture
  */
 
 import { input, select, password } from '@inquirer/prompts';
